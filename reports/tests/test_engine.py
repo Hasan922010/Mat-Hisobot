@@ -1,6 +1,10 @@
 from decimal import Decimal
+from types import SimpleNamespace
 import openpyxl
 import pandas as pd
+import pytest
+from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 
 from reports.services.audit_engine import (
     clean_decimal,
@@ -9,7 +13,9 @@ from reports.services.audit_engine import (
     process_separate_files,
     read_file_preview,
 )
+from reports.services.fuzzy_matcher import deduplicate_names
 from reports.services.transliterator import latin_to_cyrillic
+from reports.validators import MAX_FILE_SIZE_BYTES, validate_uploaded_file
 
 
 def test_decimal_guard_preserves_dot_and_converts_comma():
@@ -201,3 +207,27 @@ def test_multisheet_xlsx_auto_selects_kirim_sheet_even_if_chiqim_is_active(tmp_p
     assert item["chiqim_soni"] == Decimal("30.000")
     assert item["farq_qoldiq_soni"] == Decimal("70.000")
     assert item["ortacha_narx"] == Decimal("10000.00")
+
+
+def test_file_validator_blocks_spoofed_xlsx_empty_and_oversized():
+    with pytest.raises(ValidationError):
+        validate_uploaded_file(SimpleUploadedFile("bad.txt", b"hello"))
+    with pytest.raises(ValidationError):
+        validate_uploaded_file(SimpleUploadedFile("empty.csv", b""))
+    with pytest.raises(ValidationError):
+        validate_uploaded_file(SimpleUploadedFile("fake.xlsx", b"not-a-zip-header"))
+
+    oversized = SimpleNamespace(name="huge.csv", size=MAX_FILE_SIZE_BYTES + 1, tell=lambda: 0, read=lambda n: b"a", seek=lambda p: None)
+    with pytest.raises(ValidationError):
+        validate_uploaded_file(oversized)
+
+
+def test_fuzzy_matcher_merges_near_duplicates_and_keeps_distinct():
+    mapping, merged = deduplicate_names(
+        ["Шакар оқ 1кг", "Шакар  оқ 1кг", "Шакар оқ 1к", "Ёғ кунгабоқар 5л"],
+        threshold=92,
+    )
+    assert merged >= 1
+    assert mapping["Шакар  оқ 1кг"] == "Шакар оқ 1кг"
+    assert mapping["Шакар оқ 1к"] == "Шакар оқ 1кг"
+    assert mapping["Ёғ кунгабоқар 5л"] == "Ёғ кунгабоқар 5л"

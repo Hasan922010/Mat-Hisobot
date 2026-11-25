@@ -373,3 +373,35 @@ def test_fractional_mavjud_and_delete_batch(auth_client, django_user_model):
     assert auth_client.get(del_url).status_code == 405
     assert auth_client.post(del_url).status_code == 302
     assert not ReportBatch.objects.filter(pk=batch.pk).exists()
+
+
+@pytest.mark.django_db
+def test_failed_batch_records_error_status_and_ai_fallback(monkeypatch, settings, tmp_path):
+    settings.MEDIA_ROOT = tmp_path
+    bad_csv = tmp_path / "broken.csv"
+    bad_csv.write_text("foo,bar\n1,2\n", encoding="utf-8")
+
+    comp = Company.objects.create(name="Xato MCHJ", stir="666777888")
+    batch = ReportBatch.objects.create(company=comp, year=2026, uploaded_file=str(bad_csv))
+    batch.uploaded_file.name = str(bad_csv)
+    batch.save(update_fields=["uploaded_file"])
+
+    with pytest.raises(ValueError):
+        process_report_batch(batch.id)
+    batch.refresh_from_db()
+    assert batch.status == "FAILED"
+    assert "tovar nomi" in batch.error_message
+
+    # AI API xato berganda deterministik CFO xulosasiga tushishi kerak
+    from reports.services import ai_advisor
+    import google.genai as genai_mod
+
+    settings.GEMINI_API_KEY = "fake-test-key"
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("network down")
+
+    monkeypatch.setattr(genai_mod, "Client", _boom)
+    summary = ai_advisor.generate_ai_summary(batch, [], [])
+    assert "Iqtisodiy Audit Xulosasi" in summary
+    assert "DIO" in summary
