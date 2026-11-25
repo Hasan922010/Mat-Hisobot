@@ -1,0 +1,266 @@
+{% extends "reports/base.html" %}
+{% block title %}Boshqaruv Paneli — Mat-Hisobot{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start" x-data="{
+  kirimName: '',
+  chiqimName: '',
+  dragK: false,
+  dragC: false,
+  submitting: false,
+  clearFile(role) {
+    if (role === 'kirim') {
+      this.kirimName = '';
+      this.$refs.kirimInput.value = '';
+      document.getElementById('kirim-preview').innerHTML = '';
+    } else {
+      this.chiqimName = '';
+      this.$refs.chiqimInput.value = '';
+      document.getElementById('chiqim-preview').innerHTML = '';
+    }
+    document.getElementById('compatibility-result').innerHTML = '';
+  },
+  scrollPreviewOnMobile() {
+    if (window.innerWidth < 1024) {
+      this.$nextTick(() => document.getElementById('preview-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
+    }
+  }
+}">
+  <!-- Yuklash formasi (Chap tomon) -->
+  <section class="lg:col-span-1 bg-white border border-slate-200 rounded-xl p-6 shadow-sm" aria-labelledby="upload-heading">
+    <h1 id="upload-heading" class="text-lg font-semibold text-slate-900 mb-1">Yangi Hisobot Yuklash</h1>
+    <p class="text-xs text-slate-500 mb-5">1C, MoySklad yoki Asl Belgisi (.xlsx, .xls, .csv &le; 100MB)</p>
+
+    <form id="upload-form" method="post" enctype="multipart/form-data" class="space-y-4" @submit="submitting = true">
+      {% csrf_token %}
+      {% if companies %}
+        <div>
+          <label for="quick-company" class="block text-xs font-medium text-slate-500 mb-1">Mavjud korxonani tanlash (ixtiyoriy)</label>
+          <select id="quick-company"
+            @change="if ($event.target.value) { const [s, n] = $event.target.value.split('|||'); $refs.stirInput.value = s; $refs.nameInput.value = n; }"
+            class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 focus:border-blue-500 outline-none">
+            <option value="">-- Yangi korxona kiritish --</option>
+            {% for comp in companies %}
+              <option value="{{ comp.stir }}|||{{ comp.name }}">{{ comp.name }} (STIR: {{ comp.stir }})</option>
+            {% endfor %}
+          </select>
+        </div>
+      {% endif %}
+
+      <div>
+        <label for="company_name" class="block text-sm font-medium text-slate-700 mb-1">Korxona nomi</label>
+        <input x-ref="nameInput" id="company_name" name="company_name" type="text" required placeholder="Masalan: Baraka Savdo MCHJ"
+          class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none">
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label for="stir" class="block text-sm font-medium text-slate-700 mb-1">STIR (INN)</label>
+          <input x-ref="stirInput" id="stir" name="stir" type="text" required placeholder="123456789"
+            class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none">
+        </div>
+        <div>
+          <label for="year" class="block text-sm font-medium text-slate-700 mb-1">Yil</label>
+          <input id="year" name="year" type="number" required value="2026" min="2000" max="2100"
+            class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none">
+        </div>
+      </div>
+
+      <div>
+        <label for="period_label" class="block text-sm font-medium text-slate-700 mb-1">Davr</label>
+        <input id="period_label" name="period_label" type="text" value="Yillik" placeholder="Yillik, Q1, Yanvar..."
+          class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none">
+      </div>
+
+      <div>
+        <div class="flex items-center justify-between mb-1">
+          <label for="kirim_file" class="block text-sm font-medium text-slate-700">1. Kirim hujjati</label>
+          <button type="button" x-show="kirimName" x-cloak @click="clearFile('kirim')"
+            class="text-xs text-slate-500 hover:text-red-600 transition">Bekor qilish</button>
+        </div>
+        <label
+          for="kirim_file"
+          @dragover.prevent="dragK = true"
+          @dragleave.prevent="dragK = false"
+          @drop.prevent="dragK = false; $refs.kirimInput.files = $event.dataTransfer.files; kirimName = $event.dataTransfer.files[0]?.name || ''; $refs.kirimInput.dispatchEvent(new Event('change', { bubbles: true }))"
+          :class="dragK ? 'border-blue-500 bg-blue-50' : (kirimName ? 'border-emerald-400 bg-emerald-50/40' : 'border-slate-300 bg-slate-50')"
+          class="flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-4 cursor-pointer hover:border-blue-400 transition text-center"
+        >
+          <span class="text-xs font-medium" :class="kirimName ? 'text-emerald-800' : 'text-slate-700'" x-text="kirimName ? '✓ ' + kirimName : 'Kirim faylini tanlang (.xlsx, .xls, .csv)'"></span>
+          <input x-ref="kirimInput" id="kirim_file" name="kirim_file" type="file" accept=".xlsx,.xls,.csv" required class="sr-only"
+            hx-post="{% url 'reports:preview_file' %}"
+            hx-encoding="multipart/form-data"
+            hx-trigger="change"
+            hx-vals='{"role": "kirim"}'
+            hx-target="#kirim-preview"
+            hx-indicator="#preview-loading"
+            @change="kirimName = $event.target.files[0]?.name || ''; document.getElementById('compatibility-result').innerHTML = ''; scrollPreviewOnMobile()">
+        </label>
+      </div>
+
+      <div>
+        <div class="flex items-center justify-between mb-1">
+          <label for="chiqim_file" class="block text-sm font-medium text-slate-700">2. Chiqim hujjati</label>
+          <button type="button" x-show="chiqimName" x-cloak @click="clearFile('chiqim')"
+            class="text-xs text-slate-500 hover:text-red-600 transition">Bekor qilish</button>
+        </div>
+        <label
+          for="chiqim_file"
+          @dragover.prevent="dragC = true"
+          @dragleave.prevent="dragC = false"
+          @drop.prevent="dragC = false; $refs.chiqimInput.files = $event.dataTransfer.files; chiqimName = $event.dataTransfer.files[0]?.name || ''; $refs.chiqimInput.dispatchEvent(new Event('change', { bubbles: true }))"
+          :class="dragC ? 'border-blue-500 bg-blue-50' : (chiqimName ? 'border-emerald-400 bg-emerald-50/40' : 'border-slate-300 bg-slate-50')"
+          class="flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-4 cursor-pointer hover:border-blue-400 transition text-center"
+        >
+          <span class="text-xs font-medium" :class="chiqimName ? 'text-emerald-800' : 'text-slate-700'" x-text="chiqimName ? '✓ ' + chiqimName : 'Chiqim faylini tanlang (.xlsx, .xls, .csv)'"></span>
+          <input x-ref="chiqimInput" id="chiqim_file" name="chiqim_file" type="file" accept=".xlsx,.xls,.csv" required class="sr-only"
+            hx-post="{% url 'reports:preview_file' %}"
+            hx-encoding="multipart/form-data"
+            hx-trigger="change"
+            hx-vals='{"role": "chiqim"}'
+            hx-target="#chiqim-preview"
+            hx-indicator="#preview-loading"
+            @change="chiqimName = $event.target.files[0]?.name || ''; document.getElementById('compatibility-result').innerHTML = ''; scrollPreviewOnMobile()">
+        </label>
+      </div>
+
+      <div id="compatibility-result" aria-live="polite"></div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        <button type="button"
+          hx-post="{% url 'reports:check_compatibility' %}"
+          hx-encoding="multipart/form-data"
+          hx-include="#upload-form, #preview-panel select"
+          hx-target="#compatibility-result"
+          :disabled="submitting || !kirimName || !chiqimName"
+          class="w-full inline-flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-800 border border-slate-300 font-medium py-2.5 px-3 rounded-lg text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-500">
+          <svg class="htmx-indicator animate-spin h-4 w-4 text-slate-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+          </svg>
+          <span>Moslikni Tekshirish</span>
+        </button>
+
+        <button type="submit"
+          :disabled="submitting || !kirimName || !chiqimName"
+          class="w-full inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium py-2.5 px-3 rounded-lg text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600">
+          <svg x-show="submitting" x-cloak class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+          </svg>
+          <span x-text="submitting ? 'Yuklanmoqda...' : 'Tekshirib Import Qilish'"></span>
+        </button>
+      </div>
+    </form>
+  </section>
+
+  <!-- O'ng tomon: Real-time Ustunlar Mosligi + Hisobotlar tarixi -->
+  <section class="lg:col-span-2 space-y-6">
+    <div id="preview-panel" x-show="kirimName || chiqimName" x-transition x-cloak
+      class="bg-white border border-blue-200 rounded-xl p-6 shadow-sm space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div>
+          <h2 class="text-lg font-semibold text-slate-900">Ustunlar Mosligi va Real Vaqtda Jadval</h2>
+          <p class="text-xs text-slate-500">MXIK, Markirovka, Tovar, Soni, Summa ustunlarini tanlang &mdash; Narxi avtomatik (Summa / Soni) hisoblanadi</p>
+        </div>
+        <span id="preview-loading" class="htmx-indicator items-center gap-1.5 text-xs text-blue-700 font-medium">
+          <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+          </svg>
+          Yuklanmoqda...
+        </span>
+      </div>
+      <div id="kirim-preview"></div>
+      <div id="chiqim-preview"></div>
+    </div>
+
+    <div class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <h2 class="text-lg font-semibold text-slate-900">Hisobotlar Tarixi</h2>
+        <form method="get" class="flex items-center gap-2">
+          <label for="filter-stir" class="sr-only">Korxona bo'yicha filtr</label>
+          <select id="filter-stir" name="stir" onchange="this.form.submit()"
+            class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm bg-white">
+            <option value="">Barcha korxonalar</option>
+            {% for comp in companies %}
+              <option value="{{ comp.stir }}" {% if selected_stir == comp.stir %}selected{% endif %}>
+                {{ comp.name }} ({{ comp.stir }})
+              </option>
+            {% endfor %}
+          </select>
+        </form>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm text-left">
+          <thead class="bg-slate-100 text-slate-600 text-xs uppercase">
+            <tr>
+              <th class="px-3 py-2.5">Korxona</th>
+              <th class="px-3 py-2.5">Davr</th>
+              <th class="px-3 py-2.5">Holat</th>
+              <th class="px-3 py-2.5 text-right">Tovarlar</th>
+              <th class="px-3 py-2.5 text-right">Kirimsiz Sotuv</th>
+              <th class="px-3 py-2.5 text-right">Markirovka Xato</th>
+              <th class="px-3 py-2.5 text-right">Amal</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200">
+            {% for b in batches %}
+              <tr class="hover:bg-slate-50">
+                <td class="px-3 py-2.5 font-medium text-slate-900">
+                  {{ b.company.name }}
+                  <div class="text-xs text-slate-400">STIR: {{ b.company.stir }}</div>
+                </td>
+                <td class="px-3 py-2.5">{{ b.year }} ({{ b.period_label }})</td>
+                <td class="px-3 py-2.5">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                    {% if b.status == 'COMPLETED' %}bg-emerald-100 text-emerald-800
+                    {% elif b.status == 'FAILED' %}bg-red-100 text-red-800
+                    {% else %}bg-amber-100 text-amber-800{% endif %}">
+                    {{ b.get_status_display }} ({{ b.progress_percent }}%)
+                  </span>
+                </td>
+                <td class="px-3 py-2.5 text-right font-mono-num">{{ b.total_items_count }}</td>
+                <td class="px-3 py-2.5 text-right font-mono-num font-medium text-red-700">{{ b.total_shortage_amount|floatformat:2 }}</td>
+                <td class="px-3 py-2.5 text-right font-mono-num">{{ b.marking_discrepancy_count }}</td>
+                <td class="px-3 py-2.5 text-right space-x-2 whitespace-nowrap">
+                  <a href="{% url 'reports:batch_detail' b.pk %}" class="text-blue-600 hover:underline font-medium">Ko'rish</a>
+                  {% if b.status == 'COMPLETED' %}
+                    <a href="{% url 'reports:export_excel' b.pk %}" class="text-emerald-700 hover:underline font-medium">Excel</a>
+                  {% endif %}
+                  <form method="post" action="{% url 'reports:delete_batch' b.pk %}" class="inline"
+                    onsubmit="return confirm('Ushbu hisobotni o\'chirishni tasdiqlaysizmi?');">
+                    {% csrf_token %}
+                    <button type="submit" class="text-red-600 hover:underline font-medium">O'chirish</button>
+                  </form>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="7" class="px-3 py-8 text-center text-slate-400">Hozircha hisobotlar yuklanmagan.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {% if comparison_batches %}
+      <div class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+        <h2 class="text-base font-semibold text-slate-900 mb-3">Davrlararo Solishtirish (STIR: {{ selected_stir }})</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {% for cb in comparison_batches %}
+            <div class="border border-slate-200 rounded-lg p-4 bg-slate-50">
+              <div class="text-xs text-slate-500">{{ cb.year }} &bull; {{ cb.period_label }}</div>
+              <div class="text-sm font-semibold text-slate-900 mt-1">{{ cb.total_items_count }} ta tovar</div>
+              <div class="text-xs text-red-700 mt-1">Kirimsiz sotuv: {{ cb.total_shortage_amount|floatformat:2 }}</div>
+              <div class="text-xs text-amber-700">Markirovka xato: {{ cb.marking_discrepancy_count }}</div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

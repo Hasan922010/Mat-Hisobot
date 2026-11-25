@@ -1,0 +1,354 @@
+{% extends "reports/base.html" %}
+{% load report_extras %}
+{% block title %}{{ batch.company.name }} ({{ batch.year }}) — Mat-Hisobot{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <a href="{% url 'reports:dashboard' %}" class="text-xs text-blue-600 hover:underline">&larr; Bosh sahifaga qaytish</a>
+      <h1 class="text-2xl font-bold text-slate-900 mt-1">{{ batch.company.name }}</h1>
+      <p class="text-sm text-slate-500">STIR: {{ batch.company.stir }} &bull; {{ batch.year }} yil ({{ batch.period_label }})</p>
+    </div>
+    {% if batch.status == 'COMPLETED' %}
+      <a href="{% url 'reports:export_excel' batch.pk %}"
+        class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-4 py-2.5 rounded-lg text-sm shadow-sm transition">
+        Excel Hisobot Yuklab Olish (.xlsx)
+      </a>
+    {% endif %}
+  </div>
+
+  {% if batch.status == 'PENDING' or batch.status == 'PROCESSING' or batch.status == 'FAILED' %}
+    {% include "reports/partials/progress.html" %}
+  {% endif %}
+
+  {% if batch.status == 'COMPLETED' %}
+    <!-- KPI kartochkalari -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+        <div class="text-xs text-slate-500">Jami Tovarlar</div>
+        <div class="text-2xl font-bold font-mono-num text-slate-900 mt-1">{{ batch.total_items_count }}</div>
+      </div>
+      <div class="bg-white border border-emerald-200 rounded-xl p-4 shadow-sm">
+        <div class="text-xs text-slate-500">Ombor Qoldig'i (Aktiv)</div>
+        <div class="text-xl font-bold font-mono-num text-emerald-700 mt-1">{{ total_ending_asset|floatformat:2 }}</div>
+      </div>
+      <div class="bg-white border border-red-200 rounded-xl p-4 shadow-sm">
+        <div class="text-xs text-slate-500">Kirimsiz Sotuv Summasi</div>
+        <div class="text-xl font-bold font-mono-num text-red-700 mt-1">{{ batch.total_shortage_amount|floatformat:2 }}</div>
+      </div>
+      <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+        <div class="text-xs text-slate-500">Markirovka Kamchiliklari</div>
+        <div class="text-2xl font-bold font-mono-num text-amber-700 mt-1">{{ batch.marking_discrepancy_count }}</div>
+      </div>
+      <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+        <div class="text-xs text-slate-500">RapidFuzz Birlashtirilgan</div>
+        <div class="text-2xl font-bold font-mono-num text-blue-700 mt-1">{{ batch.fuzzy_merged_count }}</div>
+      </div>
+    </div>
+
+    <!-- AI Iqtisodiy Tahlil -->
+    {% if batch.ai_summary_markdown %}
+      <section class="bg-white border border-blue-200 rounded-xl shadow-sm overflow-hidden" aria-labelledby="ai-heading">
+        <div class="bg-gradient-to-r from-blue-50 to-slate-50 border-b border-blue-100 px-6 py-3.5 flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2.5">
+            <span class="inline-flex items-center justify-center h-7 w-7 rounded-lg bg-blue-600 text-white text-xs font-bold shadow-sm" aria-hidden="true">AI</span>
+            <h2 id="ai-heading" class="text-base font-semibold text-slate-900">AI Iqtisodchi-Tahlilchi Xulosasi</h2>
+          </div>
+          <span class="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800">Ekspert Auditi</span>
+        </div>
+        <div class="p-6">
+          {{ batch.ai_summary_markdown|render_ai_markdown }}
+        </div>
+      </section>
+    {% endif %}
+
+    <!-- Qidiruv va Tablar -->
+    <div x-data="{
+      activeTab: '{{ tab }}',
+      tabs: ['svod', 'shortage', 'marking', 'discrepancy'],
+      setTab(t) {
+        this.activeTab = t;
+        const u = new URL(window.location);
+        u.searchParams.set('tab', t);
+        window.history.replaceState({}, '', u);
+      },
+      moveTab(delta) {
+        const next = this.tabs[(this.tabs.indexOf(this.activeTab) + delta + this.tabs.length) % this.tabs.length];
+        this.setTab(next);
+        document.getElementById('tab-' + next)?.focus();
+      }
+    }" class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+      <div class="border-b border-slate-200 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex flex-wrap gap-2" role="tablist" aria-label="Hisobot bo'limlari"
+          @keydown.arrow-right.prevent="moveTab(1)"
+          @keydown.arrow-left.prevent="moveTab(-1)">
+          <button type="button" id="tab-svod" role="tab" aria-controls="panel-svod"
+            :aria-selected="activeTab === 'svod' ? 'true' : 'false'"
+            :tabindex="activeTab === 'svod' ? 0 : -1"
+            @click="setTab('svod')"
+            :class="activeTab === 'svod' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'"
+            class="px-3 py-1.5 rounded-lg text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600">
+            Svod Jadval ({{ batch.total_items_count }})
+          </button>
+          <button type="button" id="tab-shortage" role="tab" aria-controls="panel-shortage"
+            :aria-selected="activeTab === 'shortage' ? 'true' : 'false'"
+            :tabindex="activeTab === 'shortage' ? 0 : -1"
+            @click="setTab('shortage')"
+            :class="activeTab === 'shortage' ? 'bg-red-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'"
+            class="px-3 py-1.5 rounded-lg text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-600">
+            Kirimsiz Sotuvlar ({{ shortage_count }})
+          </button>
+          <button type="button" id="tab-marking" role="tab" aria-controls="panel-marking"
+            :aria-selected="activeTab === 'marking' ? 'true' : 'false'"
+            :tabindex="activeTab === 'marking' ? 0 : -1"
+            @click="setTab('marking')"
+            :class="activeTab === 'marking' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'"
+            class="px-3 py-1.5 rounded-lg text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600">
+            Markirovka Qoldiq ({{ marking_count }})
+          </button>
+          <button type="button" id="tab-discrepancy" role="tab" aria-controls="panel-discrepancy"
+            :aria-selected="activeTab === 'discrepancy' ? 'true' : 'false'"
+            :tabindex="activeTab === 'discrepancy' ? 0 : -1"
+            @click="setTab('discrepancy')"
+            :class="activeTab === 'discrepancy' ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'"
+            class="px-3 py-1.5 rounded-lg text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-600">
+            Markirovka Kamchiliklari ({{ batch.marking_discrepancy_count }})
+          </button>
+        </div>
+
+        <form method="get" class="flex items-center gap-2">
+          <input type="hidden" name="tab" :value="activeTab">
+          <label for="search-q" class="sr-only">Qidirish</label>
+          <input id="search-q" name="q" value="{{ search_q }}" placeholder="Tovar nomi yoki MXIK..."
+            class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-blue-500 outline-none">
+          <button type="submit" class="bg-slate-800 hover:bg-slate-900 text-white px-3 py-1.5 rounded-lg text-sm transition">Qidirish</button>
+          {% if search_q %}
+            <a :href="'?tab=' + activeTab" class="text-xs text-slate-600 hover:text-slate-900 px-2 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50">Tozalash</a>
+          {% endif %}
+        </form>
+      </div>
+
+      <!-- 1. Svod Jadval -->
+      <div id="panel-svod" role="tabpanel" aria-labelledby="tab-svod" x-show="activeTab === 'svod'" class="overflow-x-auto">
+        <table class="min-w-full text-xs text-left">
+          <thead class="bg-slate-100 text-slate-700 uppercase">
+            <tr>
+              <th class="px-3 py-2.5">MXIK</th>
+              <th class="px-3 py-2.5">Tovar Nomi (Kirill)</th>
+              <th class="px-3 py-2.5 text-right">Narx</th>
+              <th class="px-3 py-2.5 text-right">Bosh Qoldiq</th>
+              <th class="px-3 py-2.5 text-right">Kirim</th>
+              <th class="px-3 py-2.5 text-right">Chiqim</th>
+              <th class="px-3 py-2.5 text-right">Oxirgi Qoldiq</th>
+              <th class="px-3 py-2.5 text-right">Kirimsiz Sotilgan</th>
+              <th class="px-3 py-2.5 text-right">Kirimsiz Summa</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200">
+            {% for item in items_page %}
+              <tr class="hover:bg-slate-50 {% if item.farq_ortiqcha_soni > 0 %}bg-red-50/40{% endif %}">
+                <td class="px-3 py-2 text-slate-500 font-mono-num">{{ item.tovar_id|default:"-" }}</td>
+                <td class="px-3 py-2 font-medium text-slate-900">{{ item.tovar_nomi_kirill }}</td>
+                <td class="px-3 py-2 text-right font-mono-num">{{ item.ortacha_narx|floatformat:2 }}</td>
+                <td class="px-3 py-2 text-right font-mono-num">{{ item.bosh_qoldiq_soni|floatformat:3 }}</td>
+                <td class="px-3 py-2 text-right font-mono-num">{{ item.kirim_soni|floatformat:3 }}</td>
+                <td class="px-3 py-2 text-right font-mono-num">{{ item.chiqim_soni|floatformat:3 }}</td>
+                <td class="px-3 py-2 text-right font-mono-num">{{ item.farq_qoldiq_soni|floatformat:3 }}</td>
+                <td class="px-3 py-2 text-right font-mono-num font-semibold text-red-700">{{ item.farq_ortiqcha_soni|floatformat:3 }}</td>
+                <td class="px-3 py-2 text-right font-mono-num font-semibold text-red-700">{{ item.farq_ortiqcha_summa|floatformat:2 }}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="9" class="px-3 py-6 text-center text-slate-400">Ma'lumot topilmadi.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% if items_page.paginator.num_pages > 1 %}
+          <div class="px-6 py-3 border-t border-slate-200 flex items-center justify-between text-xs text-slate-600">
+            <span>Sahifa {{ items_page.number }} / {{ items_page.paginator.num_pages }}</span>
+            <div class="space-x-2">
+              {% if items_page.has_previous %}
+                <a href="?tab=svod&q={{ search_q }}&page={{ items_page.previous_page_number }}" class="px-2.5 py-1 border rounded hover:bg-slate-100">Oldingi</a>
+              {% endif %}
+              {% if items_page.has_next %}
+                <a href="?tab=svod&q={{ search_q }}&page={{ items_page.next_page_number }}" class="px-2.5 py-1 border rounded hover:bg-slate-100">Keyingi</a>
+              {% endif %}
+            </div>
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- 2. Kirimsiz Sotuvlar -->
+      <div id="panel-shortage" role="tabpanel" aria-labelledby="tab-shortage" x-show="activeTab === 'shortage'" x-cloak class="overflow-x-auto">
+        <table class="min-w-full text-xs text-left">
+          <thead class="bg-red-50 text-red-900 uppercase">
+            <tr>
+              <th class="px-3 py-2.5">MXIK</th>
+              <th class="px-3 py-2.5">Tovar Nomi</th>
+              <th class="px-3 py-2.5 text-right">Mavjud (Bosh+Kirim)</th>
+              <th class="px-3 py-2.5 text-right">Chiqim</th>
+              <th class="px-3 py-2.5 text-right">Ortiqcha Soni</th>
+              <th class="px-3 py-2.5 text-right">Ortiqcha Summa</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200">
+            {% for item in shortage_page %}
+              <tr class="hover:bg-red-50/40">
+                <td class="px-3 py-2 text-slate-500 font-mono-num">{{ item.tovar_id|default:"-" }}</td>
+                <td class="px-3 py-2 font-medium">{{ item.tovar_nomi_kirill }}</td>
+                <td class="px-3 py-2 text-right font-mono-num">{{ item.mavjud_soni|floatformat:3 }}</td>
+                <td class="px-3 py-2 text-right font-mono-num">{{ item.chiqim_soni|floatformat:3 }}</td>
+                <td class="px-3 py-2 text-right font-mono-num font-bold text-red-700">{{ item.farq_ortiqcha_soni|floatformat:3 }}</td>
+                <td class="px-3 py-2 text-right font-mono-num font-bold text-red-700">{{ item.farq_ortiqcha_summa|floatformat:2 }}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="6" class="px-3 py-6 text-center text-slate-400">Kirimsiz sotuvlar aniqlanmadi.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% if shortage_page.paginator.num_pages > 1 %}
+          <div class="px-6 py-3 border-t border-slate-200 flex items-center justify-between text-xs text-slate-600">
+            <span>Sahifa {{ shortage_page.number }} / {{ shortage_page.paginator.num_pages }}</span>
+            <div class="space-x-2">
+              {% if shortage_page.has_previous %}
+                <a href="?tab=shortage&q={{ search_q }}&s_page={{ shortage_page.previous_page_number }}" class="px-2.5 py-1 border rounded hover:bg-slate-100">Oldingi</a>
+              {% endif %}
+              {% if shortage_page.has_next %}
+                <a href="?tab=shortage&q={{ search_q }}&s_page={{ shortage_page.next_page_number }}" class="px-2.5 py-1 border rounded hover:bg-slate-100">Keyingi</a>
+              {% endif %}
+            </div>
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- 3. Markirovka Qoldiq -->
+      <div id="panel-marking" role="tabpanel" aria-labelledby="tab-marking" x-show="activeTab === 'marking'" x-cloak class="overflow-x-auto">
+        <table class="min-w-full text-xs text-left">
+          <thead class="bg-slate-100 text-slate-700 uppercase">
+            <tr>
+              <th class="px-3 py-2.5">MXIK</th>
+              <th class="px-3 py-2.5">Tovar Nomi</th>
+              <th class="px-3 py-2.5 text-right">Bosh Markirovka</th>
+              <th class="px-3 py-2.5 text-right">Kirim Markirovka</th>
+              <th class="px-3 py-2.5 text-right">Chiqim Markirovka</th>
+              <th class="px-3 py-2.5 text-right">Qoldiq Markirovka</th>
+              <th class="px-3 py-2.5">Ombordagi Kodlar</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200">
+            {% for m in marking_page %}
+              <tr class="hover:bg-slate-50">
+                <td class="px-3 py-2 text-slate-500 font-mono-num">{{ m.tovar_id|default:"-" }}</td>
+                <td class="px-3 py-2 font-medium">{{ m.tovar_nomi_kirill }}</td>
+                <td class="px-3 py-2 text-right font-mono-num">{{ m.bosh_markirovka_soni }}</td>
+                <td class="px-3 py-2 text-right font-mono-num">{{ m.kirim_markirovka_soni }}</td>
+                <td class="px-3 py-2 text-right font-mono-num">{{ m.chiqim_markirovka_soni }}</td>
+                <td class="px-3 py-2 text-right font-mono-num font-bold text-emerald-700">{{ m.qoldiq_markirovka_soni }}</td>
+                <td class="px-3 py-2 text-slate-600 max-w-sm">
+                  {% if m.qoldiq_markirovkalar %}
+                    <details class="group" x-data="{ copied: false }">
+                      <summary class="cursor-pointer text-blue-700 hover:underline select-none">
+                        {{ m.qoldiq_markirovkalar|length }} ta kodni ko'rish
+                      </summary>
+                      <div class="mt-2 p-2 bg-slate-50 border border-slate-200 rounded-lg space-y-1.5">
+                        <div class="flex justify-end">
+                          <button type="button"
+                            @click="navigator.clipboard.writeText($el.closest('div').nextElementSibling.textContent.trim()); copied = true; setTimeout(() => copied = false, 1500)"
+                            class="text-[11px] px-2 py-0.5 rounded bg-white border border-slate-300 hover:bg-slate-100 text-slate-700">
+                            <span x-text="copied ? '✓ Nusxalandi' : 'Nusxalash'"></span>
+                          </button>
+                        </div>
+                        <div class="font-mono-num text-[11px] break-all max-h-32 overflow-y-auto text-slate-700">{{ m.qoldiq_markirovkalar|join:", " }}</div>
+                      </div>
+                    </details>
+                  {% else %}
+                    <span class="text-slate-400">-</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="7" class="px-3 py-6 text-center text-slate-400">Markirovka ma'lumotlari mavjud emas.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% if marking_page.paginator.num_pages > 1 %}
+          <div class="px-6 py-3 border-t border-slate-200 flex items-center justify-between text-xs text-slate-600">
+            <span>Sahifa {{ marking_page.number }} / {{ marking_page.paginator.num_pages }}</span>
+            <div class="space-x-2">
+              {% if marking_page.has_previous %}
+                <a href="?tab=marking&q={{ search_q }}&m_page={{ marking_page.previous_page_number }}" class="px-2.5 py-1 border rounded hover:bg-slate-100">Oldingi</a>
+              {% endif %}
+              {% if marking_page.has_next %}
+                <a href="?tab=marking&q={{ search_q }}&m_page={{ marking_page.next_page_number }}" class="px-2.5 py-1 border rounded hover:bg-slate-100">Keyingi</a>
+              {% endif %}
+            </div>
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- 4. Markirovka Kamchiliklari -->
+      <div id="panel-discrepancy" role="tabpanel" aria-labelledby="tab-discrepancy" x-show="activeTab === 'discrepancy'" x-cloak class="overflow-x-auto">
+        <table class="min-w-full text-xs text-left">
+          <thead class="bg-amber-50 text-amber-900 uppercase">
+            <tr>
+              <th class="px-3 py-2.5">MXIK</th>
+              <th class="px-3 py-2.5">Tovar Nomi</th>
+              <th class="px-3 py-2.5 text-right">Kirim Farqi</th>
+              <th class="px-3 py-2.5 text-right">Chiqim Farqi</th>
+              <th class="px-3 py-2.5">Noma'lum Kodlar</th>
+              <th class="px-3 py-2.5">Kamchilik Sababi</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200">
+            {% for d in discrepancy_page %}
+              <tr class="bg-red-50/50">
+                <td class="px-3 py-2 text-slate-500 font-mono-num">{{ d.tovar_id|default:"-" }}</td>
+                <td class="px-3 py-2 font-medium">{{ d.tovar_nomi_kirill }}</td>
+                <td class="px-3 py-2 text-right font-mono-num font-semibold">{{ d.kirim_farqi }}</td>
+                <td class="px-3 py-2 text-right font-mono-num font-semibold">{{ d.chiqim_farqi }}</td>
+                <td class="px-3 py-2 text-red-700 max-w-sm">
+                  {% if d.noma_lum_chiqim_markirovkalar %}
+                    <details x-data="{ copied: false }">
+                      <summary class="cursor-pointer font-medium hover:underline select-none">
+                        {{ d.noma_lum_chiqim_markirovkalar|length }} ta noma'lum kod
+                      </summary>
+                      <div class="mt-2 p-2 bg-white border border-red-200 rounded-lg space-y-1.5">
+                        <div class="flex justify-end">
+                          <button type="button"
+                            @click="navigator.clipboard.writeText($el.closest('div').nextElementSibling.textContent.trim()); copied = true; setTimeout(() => copied = false, 1500)"
+                            class="text-[11px] px-2 py-0.5 rounded bg-red-50 border border-red-200 hover:bg-red-100 text-red-800">
+                            <span x-text="copied ? '✓ Nusxalandi' : 'Nusxalash'"></span>
+                          </button>
+                        </div>
+                        <div class="font-mono-num text-[11px] break-all max-h-32 overflow-y-auto text-red-800">{{ d.noma_lum_chiqim_markirovkalar|join:", " }}</div>
+                      </div>
+                    </details>
+                  {% else %}
+                    <span class="text-slate-400">-</span>
+                  {% endif %}
+                </td>
+                <td class="px-3 py-2 text-red-800">{{ d.kamchilik_sababi }}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="6" class="px-3 py-6 text-center text-slate-400">Markirovka kamchiliklari aniqlanmadi.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% if discrepancy_page.paginator.num_pages > 1 %}
+          <div class="px-6 py-3 border-t border-slate-200 flex items-center justify-between text-xs text-slate-600">
+            <span>Sahifa {{ discrepancy_page.number }} / {{ discrepancy_page.paginator.num_pages }}</span>
+            <div class="space-x-2">
+              {% if discrepancy_page.has_previous %}
+                <a href="?tab=discrepancy&q={{ search_q }}&d_page={{ discrepancy_page.previous_page_number }}" class="px-2.5 py-1 border rounded hover:bg-slate-100">Oldingi</a>
+              {% endif %}
+              {% if discrepancy_page.has_next %}
+                <a href="?tab=discrepancy&q={{ search_q }}&d_page={{ discrepancy_page.next_page_number }}" class="px-2.5 py-1 border rounded hover:bg-slate-100">Keyingi</a>
+              {% endif %}
+            </div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

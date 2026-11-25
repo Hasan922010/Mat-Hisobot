@@ -1,0 +1,153 @@
+{% if error %}
+  <div class="mt-2 p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-800" role="alert">
+    {{ error }}
+  </div>
+{% else %}
+  {{ preview_payload|json_script:preview_script_id }}
+  <div
+    class="mt-3 border border-slate-200 rounded-xl bg-slate-50/70 p-3 space-y-3"
+    x-data="(() => {
+      const p = JSON.parse(document.getElementById('{{ preview_script_id }}').textContent);
+      return {
+        headers: p.headers || [],
+        rows: p.rows || [],
+        mxik: p.auto.mxik || '',
+        markirovka: p.auto.markirovka || '',
+        tovar: p.auto.tovar || '',
+        soni: p.auto.soni || '',
+        summa: p.auto.summa || '',
+        cellVal(row, colName) {
+          if (!colName) return '-';
+          const idx = this.headers.indexOf(colName);
+          if (idx === -1) return '-';
+          const val = row[idx];
+          return (val === null || val === undefined || val === '') ? '-' : val;
+        },
+        parseNum(v) {
+          if (v === null || v === undefined) return 0;
+          const cleaned = String(v).replace(/\u00a0/g, '').replace(/\s+/g, '').replace(',', '.').replace(/[^\d.\-]/g, '');
+          const n = parseFloat(cleaned);
+          return Number.isFinite(n) ? n : 0;
+        },
+        calcPrice(row) {
+          const sIdx = this.headers.indexOf(this.soni);
+          const sumIdx = this.headers.indexOf(this.summa);
+          if (sIdx === -1 || sumIdx === -1) return '-';
+          const q = this.parseNum(row[sIdx]);
+          const total = this.parseNum(row[sumIdx]);
+          if (q <= 0) return '0.00';
+          return (total / q).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+      };
+    })()"
+  >
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div class="text-xs font-semibold text-slate-800">
+        {{ role_label }}: <span class="text-blue-700">{{ filename }}</span>
+      </div>
+      <div class="flex items-center gap-2">
+        {% if sheets|length > 1 %}
+          <label for="{{ role }}_sheet" class="text-[11px] text-slate-600 font-medium">Varaq:</label>
+          <select id="{{ role }}_sheet" name="{{ role }}_sheet" form="upload-form"
+            hx-post="{% url 'reports:preview_file' %}"
+            hx-encoding="multipart/form-data"
+            hx-include="#upload-form, #{{ role }}_sheet"
+            hx-vals='{"role": "{{ role }}"}'
+            hx-target="#{{ role }}-preview"
+            hx-indicator="#preview-loading"
+            class="rounded-md border border-blue-300 bg-white px-2 py-0.5 text-[11px] font-medium text-blue-800 outline-none">
+            {% for sh in sheets %}
+              <option value="{{ sh }}" {% if sh == selected_sheet %}selected{% endif %}>{{ sh }}</option>
+            {% endfor %}
+          </select>
+        {% endif %}
+        <span class="text-[11px] text-slate-500">Dastlabki {{ rows|length }} qator</span>
+      </div>
+    </div>
+
+    <!-- Ustunlarni tanlash: MXIK, Markirovka, Tovar, Soni, Summa -->
+    <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
+      <div>
+        <label for="{{ role }}_col_mxik" class="block text-[11px] font-medium text-slate-600 mb-0.5">MXIK *</label>
+        <select id="{{ role }}_col_mxik" name="{{ role }}_col_mxik" form="upload-form" x-model="mxik"
+          class="w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-xs focus:border-blue-500 outline-none">
+          <option value="">-- Tanlanmagan --</option>
+          {% for h in headers %}
+            <option value="{{ h }}">{{ h }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="{{ role }}_col_markirovka" class="block text-[11px] font-medium text-slate-600 mb-0.5">Markirovka</label>
+        <select id="{{ role }}_col_markirovka" name="{{ role }}_col_markirovka" form="upload-form" x-model="markirovka"
+          class="w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-xs focus:border-blue-500 outline-none">
+          <option value="">-- Tanlanmagan --</option>
+          {% for h in headers %}
+            <option value="{{ h }}">{{ h }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="{{ role }}_col_tovar" class="block text-[11px] font-medium text-slate-600 mb-0.5">Tovar *</label>
+        <select id="{{ role }}_col_tovar" name="{{ role }}_col_tovar" form="upload-form" x-model="tovar"
+          class="w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-xs focus:border-blue-500 outline-none">
+          <option value="">-- Tanlang --</option>
+          {% for h in headers %}
+            <option value="{{ h }}">{{ h }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="{{ role }}_col_soni" class="block text-[11px] font-medium text-slate-600 mb-0.5">Soni *</label>
+        <select id="{{ role }}_col_soni" name="{{ role }}_col_soni" form="upload-form" x-model="soni"
+          class="w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-xs focus:border-blue-500 outline-none">
+          <option value="">-- Tanlang --</option>
+          {% for h in headers %}
+            <option value="{{ h }}">{{ h }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="{{ role }}_col_summa" class="block text-[11px] font-medium text-slate-600 mb-0.5">Summa</label>
+        <select id="{{ role }}_col_summa" name="{{ role }}_col_summa" form="upload-form" x-model="summa"
+          class="w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-xs focus:border-blue-500 outline-none">
+          <option value="">-- Tanlanmagan --</option>
+          {% for h in headers %}
+            <option value="{{ h }}">{{ h }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <!-- Real vaqtda jadval: faqat MXIK, Markirovka, Tovar, Soni, Summa + Narxi -->
+    <div class="overflow-x-auto border border-slate-200 rounded-lg bg-white max-h-64">
+      <table class="min-w-full text-[11px] text-left">
+        <thead class="bg-slate-100 text-slate-700 sticky top-0">
+          <tr>
+            <th class="px-2.5 py-1.5 border-b border-slate-200 bg-indigo-50 text-indigo-900 whitespace-nowrap">MXIK</th>
+            <th class="px-2.5 py-1.5 border-b border-slate-200 bg-purple-50 text-purple-900 whitespace-nowrap">Markirovka</th>
+            <th class="px-2.5 py-1.5 border-b border-slate-200 bg-blue-50 text-blue-900 whitespace-nowrap">Tovar</th>
+            <th class="px-2.5 py-1.5 border-b border-slate-200 bg-amber-50 text-amber-900 whitespace-nowrap text-right">Soni</th>
+            <th class="px-2.5 py-1.5 border-b border-slate-200 bg-emerald-50 text-emerald-900 whitespace-nowrap text-right">Summa</th>
+            <th class="px-2.5 py-1.5 border-b border-l border-slate-200 bg-emerald-100 text-emerald-900 font-semibold whitespace-nowrap text-right">
+              Narxi (Summa/Soni)
+            </th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          <template x-for="(row, rIdx) in rows" :key="rIdx">
+            <tr class="hover:bg-slate-50">
+              <td class="px-2.5 py-1 whitespace-nowrap font-mono-num text-slate-700" x-text="cellVal(row, mxik)"></td>
+              <td class="px-2.5 py-1 max-w-[160px] truncate font-mono-num text-slate-600" :title="cellVal(row, markirovka)" x-text="cellVal(row, markirovka)"></td>
+              <td class="px-2.5 py-1 font-medium text-slate-900 max-w-xs truncate" :title="cellVal(row, tovar)" x-text="cellVal(row, tovar)"></td>
+              <td class="px-2.5 py-1 whitespace-nowrap text-right font-mono-num text-slate-700" x-text="cellVal(row, soni)"></td>
+              <td class="px-2.5 py-1 whitespace-nowrap text-right font-mono-num text-slate-700" x-text="cellVal(row, summa)"></td>
+              <td class="px-2.5 py-1 border-l border-slate-200 font-semibold text-emerald-700 text-right whitespace-nowrap font-mono-num"
+                x-text="calcPrice(row)"></td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endif %}

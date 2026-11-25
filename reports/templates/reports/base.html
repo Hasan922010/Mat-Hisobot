@@ -1,0 +1,59 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Mat-Hisobot — TMQ va Markirovka Tahlili{% endblock %}</title>
+  <script src="{% static 'reports/vendor/tailwindcss.js' %}"></script>
+  <script src="{% static 'reports/vendor/htmx.min.js' %}"></script>
+  <script defer src="{% static 'reports/vendor/alpine.min.js' %}"></script>
+  <style>
+    body { font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+    .font-mono-num { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
+    [x-cloak] { display: none !important; }
+    .htmx-indicator { display: none; }
+    .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { display: inline-flex; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col antialiased">
+  <header class="bg-slate-950 text-white border-b border-slate-800 sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <a href="{% url 'reports:dashboard' %}" class="flex items-center gap-3 font-semibold text-lg tracking-tight focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400 rounded-lg">
+        <span class="bg-gradient-to-br from-blue-500 to-blue-700 text-white px-2.5 py-1 rounded-lg text-sm font-bold shadow-sm">MH</span>
+        <span>Mat-Hisobot <span class="text-slate-400 font-normal text-xs sm:text-sm hidden sm:inline">&bull; TMQ &amp; Markirovka Auditi</span></span>
+      </a>
+      <nav aria-label="Asosiy navigatsiya" class="flex items-center gap-4 text-sm">
+        {% if user.is_authenticated %}
+          <a href="{% url 'reports:dashboard' %}" class="text-slate-300 hover:text-white transition">Bosh sahifa</a>
+          <a href="/admin/" class="text-slate-300 hover:text-white transition">Admin</a>
+          <form method="post" action="{% url 'logout' %}" class="inline">
+            {% csrf_token %}
+            <button type="submit" class="text-slate-300 hover:text-white transition">Chiqish ({{ user.username }})</button>
+          </form>
+        {% else %}
+          <a href="{% url 'login' %}" class="text-slate-300 hover:text-white transition">Kirish</a>
+        {% endif %}
+      </nav>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    {% if messages %}
+      <div class="mb-6 space-y-2" role="alert">
+        {% for message in messages %}
+          <div class="p-4 rounded-lg border {% if message.tags == 'error' %}bg-red-50 border-red-200 text-red-800{% else %}bg-blue-50 border-blue-200 text-blue-800{% endif %}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-500">
+    Enterprise Material &amp; Inventory Analytics Platform &bull; Django 6 + PostgreSQL + Django-Q2
+  </footer>
+</body>
+</html>

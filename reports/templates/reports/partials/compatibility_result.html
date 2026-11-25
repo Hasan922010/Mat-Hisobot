@@ -1,0 +1,26 @@
+<div class="rounded-lg border p-3 text-xs space-y-1.5 {% if result.compatible %}bg-emerald-50 border-emerald-200 text-emerald-900{% else %}bg-red-50 border-red-200 text-red-900{% endif %}" role="status">
+  {% if result.compatible %}
+    <div class="font-semibold flex items-center gap-1.5">
+      <span aria-hidden="true">&#10003;</span>
+      <span>Hujjatlar mos keldi — importga tayyor</span>
+    </div>
+    {% if result.kirim_map or result.chiqim_map %}
+      <div class="text-emerald-800 space-y-0.5">
+        <div><strong>Kirim ustunlari:</strong> {{ result.kirim_map.values|join:", " }}</div>
+        <div><strong>Chiqim ustunlari:</strong> {{ result.chiqim_map.values|join:", " }}</div>
+      </div>
+    {% endif %}
+    {% for w in result.warnings %}
+      <div class="text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-1">
+        &#9888; {{ w }}
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="font-semibold">Moslikda xatoliklar aniqlandi:</div>
+    <ul class="list-disc list-inside space-y-0.5">
+      {% for err in result.errors %}
+        <li>{{ err }}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+</div>
