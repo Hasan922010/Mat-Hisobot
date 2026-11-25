@@ -57,7 +57,7 @@ def test_end_to_end_upload_task_detail_and_excel_export(auth_client, settings, t
     assert batch.progress_percent == 100
     assert batch.total_items_count == 2
     assert batch.total_shortage_amount == Decimal("20001.00")
-    assert batch.marking_discrepancy_count == 2  # T1 (kirim/chiqim/ghost) va T2 (chiqim_tovar=4, markirovka=0)
+    assert batch.marking_discrepancy_count == 1  # Faqat markirovkali T1 (T2 oddiy tovar — 0 kod)
     assert "Iqtisodiy Audit Xulosasi" in batch.ai_summary_markdown
     assert "DIO" in batch.ai_summary_markdown
     assert "QQS (12%)" in batch.ai_summary_markdown

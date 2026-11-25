@@ -5,6 +5,7 @@ import re
 from decimal import Decimal
 
 _SPLIT_RE = re.compile(r"[,;\n\r|]+")
+_GS1_DATAMATRIX_RE = re.compile(r"01\d{14}21")
 
 
 def parse_marking_codes(raw) -> list[str]:
@@ -26,6 +27,9 @@ def parse_marking_codes(raw) -> list[str]:
                     items = [p.strip() for p in _SPLIT_RE.split(text) if p.strip()]
             except json.JSONDecodeError:
                 items = [p.strip() for p in _SPLIT_RE.split(text) if p.strip()]
+        elif _GS1_DATAMATRIX_RE.search(text):
+            # Asl Belgisi GS1 DataMatrix kodlari probel/qator bilan ajraladi; ',' va ';' kod ichida keladi
+            items = [p.strip() for p in text.split() if p.strip()]
         else:
             items = [p.strip() for p in _SPLIT_RE.split(text) if p.strip()]
 

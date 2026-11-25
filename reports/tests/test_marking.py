@@ -9,6 +9,15 @@ def test_parse_marking_codes_variants():
     assert parse_marking_codes(None) == []
 
 
+def test_parse_gs1_datamatrix_preserves_internal_semicolon_and_comma():
+    raw = '010478009675035021NqlIlPL;nUhcCpr%iyoB 010478011653002321rD;:KdpElGYsFWx,q5Mj'
+    parsed = parse_marking_codes(raw)
+    assert parsed == [
+        "010478009675035021NqlIlPL;nUhcCpr%iyoB",
+        "010478011653002321rD;:KdpElGYsFWx,q5Mj",
+    ]
+
+
 def test_audit_marking_record_clean():
     rec = audit_marking_record(
         tovar_id="A1",

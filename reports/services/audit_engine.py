@@ -19,18 +19,45 @@ CHUNK_SIZE = 50_000
 
 HEADER_ALIASES: dict[str, list[str]] = {
     "tovar_id": ["mxik", "мхик", "ikpu", "икпу", "tovar_id", "kod", "код", "barkod", "sku", "артикул", "id"],
-    "tovar_nomi": ["tovar_nomi", "tovar", "nomi", "mahsulot", "наименование", "товар", "номенклатура"],
-    "birligi": ["birligi", "olchov_birligi", "olchov", "ед_изм", "единица", "ед"],
+    "tovar_nomi": [
+        "примечание_к_товару_работе_услуге",
+        "примечание_к_товару",
+        "наименование_товара",
+        "tovar_nomi",
+        "tovar",
+        "nomi",
+        "mahsulot",
+        "наименование",
+        "товар",
+        "номенклатура",
+    ],
+    "birligi": ["birligi", "olchov_birligi", "olchov", "единица_измерения", "ед_изм", "единица", "ед"],
     "bosh_qoldiq_soni": ["boshlangich_qoldiq", "bosh_qoldiq", "bosh_qoldiq_soni", "нач_остаток", "начальный_остаток"],
     "kirim_soni": ["kirim", "kirim_miqdori", "kirim_soni", "prikhod", "приход", "поступление"],
     "chiqim_soni": ["chiqim", "chiqim_miqdori", "chiqim_soni", "rasxod", "sotuv", "расход", "продажа", "реализация"],
     "quantity": ["miqdor", "soni", "kolichestvo", "количество", "кол_во", "qty"],
-    "summa": ["summa", "jami_summa", "kirim_summa", "chiqim_summa", "сумма", "стоимость", "всего"],
+    "summa": [
+        "стоимость_поставки_с_учётом_ндс",
+        "стоимость_поставки_с_учетом_ндс",
+        "стоимость_поставки",
+        "summa",
+        "jami_summa",
+        "kirim_summa",
+        "chiqim_summa",
+        "сумма",
+        "стоимость",
+        "всего",
+    ],
     "ortacha_narx": ["narx", "tannarx", "ortacha_narx", "цена", "себестоимость"],
     "bosh_markirovka": ["bosh_markirovka", "boshlangich_markirovka", "нач_киз", "нач_маркировка"],
     "kirim_markirovka": ["kirim_markirovka", "prikhod_markirovka", "приход_киз", "приход_маркировка"],
     "chiqim_markirovka": ["chiqim_markirovka", "sotuv_markirovka", "расход_киз", "расход_маркировка"],
-    "markirovka": ["markirovka", "киз", "datamatrix", "sgtin"],
+    "markirovka": ["маркировка", "markirovka", "киз", "datamatrix", "sgtin"],
+}
+
+_HEADER_EXCLUSIONS: dict[str, tuple[str, ...]] = {
+    "tovar_nomi": ("продавец", "покупатель", "контрагент", "филиал"),
+    "summa": ("акциз", "ндс_сумма", "сумма_ндс"),
 }
 
 _NON_NUM_RE = re.compile(r"[^\d.\-]")
@@ -91,8 +118,11 @@ def map_headers(columns: list[object]) -> dict[str, str]:
     for canonical, aliases in HEADER_ALIASES.items():
         if canonical in mapping:
             continue
+        excluded_words = _HEADER_EXCLUSIONS.get(canonical, ())
         for norm_col, orig_col in normalized.items():
             if orig_col in used_cols:
+                continue
+            if excluded_words and any(ex in norm_col for ex in excluded_words):
                 continue
             tokens = set(norm_col.split("_"))
             matched = False
@@ -617,17 +647,23 @@ def _finalize_svod_and_marking(
     if has_marking_cols:
         item_lookup = {(it["tovar_id"] if it["tovar_id"] else it["tovar_nomi_kirill"]): it for it in items}
         for key, m_data in marking_acc.items():
+            bosh_codes = parse_marking_codes(m_data["bosh"])
+            kirim_codes = parse_marking_codes(m_data["kirim"])
+            chiqim_codes = parse_marking_codes(m_data["chiqim"])
+            # Markirovkalanmaydigan oddiy tovarlarni (kirimda ham, chiqimda ham 0 kod) soxta kamchilikka chiqarmaymiz
+            if not bosh_codes and not kirim_codes and not chiqim_codes:
+                continue
             matched_item = item_lookup.get(key)
             kirim_qty = matched_item["kirim_soni"] if matched_item else Decimal("0.000")
             chiqim_qty = matched_item["chiqim_soni"] if matched_item else Decimal("0.000")
             record = audit_marking_record(
                 tovar_id=str(m_data["tovar_id"])[:100],
                 tovar_nomi_kirill=str(m_data["tovar_nomi_kirill"])[:500],
-                bosh_codes=parse_marking_codes(m_data["bosh"]),
+                bosh_codes=bosh_codes,
                 kirim_tovar_soni=kirim_qty,
-                kirim_codes=parse_marking_codes(m_data["kirim"]),
+                kirim_codes=kirim_codes,
                 chiqim_tovar_soni=chiqim_qty,
-                chiqim_codes=parse_marking_codes(m_data["chiqim"]),
+                chiqim_codes=chiqim_codes,
             )
             if record["has_discrepancy"]:
                 marking_discrepancy_count += 1
