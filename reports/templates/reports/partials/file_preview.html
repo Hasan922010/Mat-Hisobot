@@ -1,11 +1,11 @@
 {% if error %}
-  <div class="mt-2 p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-800" role="alert">
+  <div class="mt-2 p-3 rounded-r-lg bg-[#fbe8e5] border-l-4 border-[#9c2d25] text-xs text-[#792119]" role="alert">
     {{ error }}
   </div>
 {% else %}
   {{ preview_payload|json_script:preview_script_id }}
   <div
-    class="mt-3 border border-slate-200 rounded-xl bg-slate-50/70 p-3 space-y-3"
+    class="mt-3 border border-[#dce2d9] rounded-xl bg-[#f8faf7] p-3.5 space-y-3"
     x-data="(() => {
       const p = JSON.parse(document.getElementById('{{ preview_script_id }}').textContent);
       return {
@@ -66,12 +66,12 @@
     })()"
   >
     <div class="flex flex-wrap items-center justify-between gap-2">
-      <div class="text-xs font-semibold text-slate-800">
-        {{ role_label }}: <span class="text-blue-700">{{ filename }}</span>
+      <div class="text-xs font-bold text-[#17241d]">
+        {{ role_label }}: <span class="text-[#234c38]">{{ filename }}</span>
       </div>
       <div class="flex items-center gap-2">
         {% if sheets|length > 1 %}
-          <label for="{{ role }}_sheet" class="text-[11px] text-slate-600 font-medium">Varaq:</label>
+          <label for="{{ role }}_sheet" class="text-[11px] text-[#5e6a61] font-semibold">Varaq:</label>
           <select id="{{ role }}_sheet" name="{{ role }}_sheet" form="upload-form"
             hx-post="{% url 'reports:preview_file' %}"
             hx-encoding="multipart/form-data"
@@ -79,7 +79,7 @@
             hx-vals='{"role": "{{ role }}"}'
             hx-target="#{{ role }}-preview"
             hx-indicator="#preview-loading"
-            class="rounded-md border border-blue-300 bg-white px-2 py-0.5 text-[11px] font-medium text-blue-800 outline-none">
+            class="rounded-md border border-[#c8d2c8] bg-white px-2 py-0.5 text-[11px] font-bold text-[#234c38] outline-none">
             {% for sh in sheets %}
               <option value="{{ sh }}" {% if sh == selected_sheet %}selected{% endif %}>{{ sh }}</option>
             {% endfor %}

@@ -29,9 +29,9 @@ def int_numbers(value: str) -> str:
 
 def _inline_format(text: str) -> str:
     safe = escape(text)
-    safe = _BOLD_RE.sub(r'<strong class="font-semibold text-slate-900">\1</strong>', safe)
+    safe = _BOLD_RE.sub(r'<strong class="font-semibold text-[#17241d]">\1</strong>', safe)
     safe = _CODE_RE.sub(
-        r'<code class="px-1.5 py-0.5 rounded bg-blue-50 text-blue-800 font-mono-num text-xs font-semibold">\1</code>',
+        r'<code class="px-1.5 py-0.5 rounded bg-[#eaf0e8] text-[#234c38] font-mono-num text-xs font-bold">\1</code>',
         safe,
     )
     return safe
@@ -67,8 +67,8 @@ def render_ai_markdown(value: str) -> str:
                 in_list = True
             body = line[2:].strip()
             html_parts.append(
-                '<li class="flex items-start gap-2.5 bg-slate-50/80 border border-slate-100 rounded-lg px-3.5 py-2.5">'
-                '<span class="mt-1.5 h-2 w-2 rounded-full bg-blue-600 shrink-0" aria-hidden="true"></span>'
+                '<li class="flex items-start gap-2.5 bg-[#f8faf7] border border-[#dce2d9] rounded-lg px-3.5 py-2.5">'
+                '<span class="mt-1.5 h-2 w-2 rounded-full bg-[#234c38] shrink-0" aria-hidden="true"></span>'
                 f'<span class="leading-relaxed">{_inline_format(body)}</span>'
                 "</li>"
             )

@@ -4,46 +4,107 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}Mat-Hisobot — TMQ va Markirovka Tahlili{% endblock %}</title>
+  <meta name="description" content="Mat-Hisobot — moddiy qoldiq, kirimsiz sotuv va raqamli markirovka auditi.">
+  <title>{% block title %}Mat-Hisobot · Audit ish maydoni{% endblock %}</title>
   <link rel="icon" type="image/svg+xml" href="{% static 'reports/img/favicon.svg' %}">
   <script src="{% static 'reports/vendor/tailwindcss.js' %}"></script>
   <script src="{% static 'reports/vendor/htmx.min.js' %}"></script>
   <script defer src="{% static 'reports/vendor/alpine.min.js' %}"></script>
   <style>
-    body { font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
-    .font-mono-num { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
+    :root {
+      color-scheme: light;
+      --ink: #17241d;
+      --muted: #5e6a61;
+      --paper: #f6f7f2;
+      --surface: #ffffff;
+      --line: #dce2d9;
+      --green: #234c38;
+      --green-dark: #183b2b;
+      --lime: #bce596;
+      --danger: #9c2d25;
+    }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: var(--ink);
+      background: var(--paper);
+    }
+    .font-mono-num {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-variant-numeric: tabular-nums;
+    }
+    .eyebrow {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.7rem;
+      letter-spacing: 0.14em;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .status-dot {
+      width: 0.52rem;
+      height: 0.52rem;
+      border-radius: 9999px;
+      display: inline-block;
+      background: #76a44e;
+    }
+    .hero-card {
+      background: var(--green-dark);
+      color: #f8fff4;
+      position: relative;
+      overflow: hidden;
+      isolation: isolate;
+    }
+    .hero-card::after {
+      content: "";
+      position: absolute;
+      width: 19rem;
+      height: 19rem;
+      right: -9rem;
+      bottom: -12rem;
+      border: 1px solid #bce59655;
+      transform: rotate(36deg);
+      box-shadow: 0 0 0 28px #bce5961f, 0 0 0 58px #bce59615, 0 0 0 88px #bce5960c;
+      z-index: -1;
+    }
     [x-cloak] { display: none !important; }
     .htmx-indicator { display: none; }
     .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { display: inline-flex; }
+    :focus-visible { outline: 2px solid #538549; outline-offset: 2px; }
   </style>
 </head>
-<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col antialiased">
-  <header class="bg-slate-950 text-white border-b border-slate-800 sticky top-0 z-30">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-      <a href="{% url 'reports:dashboard' %}" class="flex items-center gap-3 font-semibold text-lg tracking-tight focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400 rounded-lg">
-        <img src="{% static 'reports/img/favicon.svg' %}" alt="" width="32" height="32" class="h-8 w-8 rounded-lg shadow-sm">
-        <span>Mat-Hisobot <span class="text-slate-400 font-normal text-xs sm:text-sm hidden sm:inline">&bull; TMQ &amp; Markirovka Auditi</span></span>
+<body class="min-h-screen flex flex-col antialiased">
+  <header class="bg-white border-b border-[#dce2d9] sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[66px] flex items-center justify-between gap-4">
+      <a href="{% url 'reports:dashboard' %}" aria-label="Mat-Hisobot bosh sahifasi"
+        class="inline-flex items-center gap-2.5 font-bold text-lg tracking-tight text-[#17241d] whitespace-nowrap rounded-lg">
+        <img src="{% static 'reports/img/favicon.svg' %}" alt="" width="28" height="28" class="h-7 w-7 rounded-md">
+        <span>Mat-Hisobot<span class="text-[#588347]">.</span></span>
       </a>
-      <nav aria-label="Asosiy navigatsiya" class="flex items-center gap-4 text-sm">
+      <nav aria-label="Asosiy navigatsiya" class="flex items-center gap-3 sm:gap-4 text-sm">
         {% if user.is_authenticated %}
-          <a href="{% url 'reports:dashboard' %}" class="text-slate-300 hover:text-white transition">Bosh sahifa</a>
-          <a href="/admin/" class="text-slate-300 hover:text-white transition">Admin</a>
+          <a href="{% url 'reports:dashboard' %}" class="text-[#5e6a61] hover:text-[#17241d] font-medium transition hidden sm:inline">Bosh sahifa</a>
+          {% if user.is_staff %}
+            <a href="/admin/" class="text-[#5e6a61] hover:text-[#17241d] font-medium transition hidden sm:inline">Admin</a>
+          {% endif %}
+          <span class="text-xs text-[#5e6a61] hidden md:inline">{{ user.email|default:user.username }}</span>
           <form method="post" action="{% url 'logout' %}" class="inline">
             {% csrf_token %}
-            <button type="submit" class="text-slate-300 hover:text-white transition">Chiqish ({{ user.username }})</button>
+            <button type="submit"
+              class="px-3 py-1.5 rounded-lg border border-[#dce2d9] bg-white hover:bg-[#edf3ed] text-[#234c38] text-xs font-semibold transition">
+              Chiqish
+            </button>
           </form>
         {% else %}
-          <a href="{% url 'login' %}" class="text-slate-300 hover:text-white transition">Kirish</a>
+          <a href="{% url 'login' %}" class="px-3 py-1.5 rounded-lg border border-[#dce2d9] bg-white hover:bg-[#edf3ed] text-[#234c38] text-xs font-semibold transition">Kirish</a>
         {% endif %}
       </nav>
     </div>
   </header>
 
-  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
     {% if messages %}
       <div class="mb-6 space-y-2" role="alert">
         {% for message in messages %}
-          <div class="p-4 rounded-lg border {% if message.tags == 'error' %}bg-red-50 border-red-200 text-red-800{% else %}bg-blue-50 border-blue-200 text-blue-800{% endif %}">
+          <div class="px-4 py-3 text-sm rounded-r-lg border-l-4 {% if message.tags == 'error' %}border-[#9c2d25] bg-[#fbe8e5] text-[#792119]{% else %}border-[#8ba978] bg-[#eaf1e6] text-[#17241d]{% endif %}">
             {{ message }}
           </div>
         {% endfor %}
@@ -53,8 +114,9 @@
     {% block content %}{% endblock %}
   </main>
 
-  <footer class="border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-500">
-    Enterprise Material &amp; Inventory Analytics Platform &bull; Django 6 + PostgreSQL + Django-Q2
+  <footer class="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 border-t border-[#dce2d9] py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-[#5e6a61] eyebrow">
+    <span>MAT-HISOBOT</span>
+    <span>MODDIY QOLDIQ &middot; KIRIMSIZ SOTUV &middot; MARKIROVKA</span>
   </footer>
 </body>
 </html>
