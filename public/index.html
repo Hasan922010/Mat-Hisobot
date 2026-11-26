@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Mat-Hisobot — moddiy qoldiq, kirimsiz sotuv va raqamli markirovka auditi.">
+  <title>Mat-Hisobot · Audit ish maydoni</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="shell topbar-inner">
+      <a class="brand" href="/" aria-label="Mat-Hisobot bosh sahifasi">
+        <svg aria-hidden="true" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="7" fill="currentColor"/><path d="M8 19v-5m4 5V9m4 10v-7m4 7V7" stroke="white" stroke-width="1.7" stroke-linecap="round"/></svg>
+        Mat-Hisobot<span>.</span>
+      </a>
+      <div class="account" id="account" hidden><span id="account-email"></span><button id="logout" class="button secondary" type="button">Chiqish</button></div>
+    </div>
+  </header>
+
+  <main class="shell" id="main">
+    <p id="notice" class="notice" role="status" hidden></p>
+    <p id="loading" class="muted" role="status">Ish maydoni yuklanmoqda…</p>
+
+    <section id="auth" class="auth-layout" hidden>
+      <div class="hero">
+        <p class="eyebrow">MOLIYAVIY AUDIT / 01</p>
+        <h1>Ombor hisobini bir joyda yuriting.</h1>
+        <p>Excel yoki CSV hujjatlaridan moddiy qoldiq, kirimsiz sotuv va raqamli markirovka bo‘yicha hisobot oling.</p>
+        <div class="hero-foot"><span class="status-dot"></span> Shaxsiy audit ish maydoni</div>
+      </div>
+      <div class="panel auth-panel">
+        <p class="eyebrow">MAT-HISOBOT</p>
+        <h2 id="auth-title">Tizimga kirish</h2>
+        <p class="muted" id="auth-copy">Hisobotlaringizga kirish uchun davom eting.</p>
+        <form id="auth-form" class="stack">
+          <label id="email-label">Elektron pochta<input name="email" type="email" autocomplete="username" required placeholder="nom@korxona.uz"></label>
+          <label id="password-label">Parol<input name="password" type="password" autocomplete="current-password" required></label>
+          <button id="auth-submit" class="button primary" type="submit">Kirish</button>
+        </form>
+        <div class="auth-links">
+          <button class="text-button" id="auth-switch" type="button">Hisob yaratish</button>
+          <button class="text-button" id="auth-forgot" type="button">Parolni unutdingizmi?</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="dashboard" hidden>
+      <div class="page-heading">
+        <p class="eyebrow"><span class="status-dot"></span> AUDIT ISH MAYDONI</p>
+        <h1>Moddiy hisobotlar</h1>
+        <p>Kirim, chiqim va markirovka ma’lumotlarini tekshiring.</p>
+      </div>
+      <div class="workspace">
+        <section class="panel">
+          <p class="eyebrow">01 / HUJJATLAR</p>
+          <h2>Yangi hisobot</h2>
+          <form id="report-form" class="stack">
+            <label>Korxona nomi<input name="company" required maxlength="255" placeholder="Masalan, Baraka Savdo MCHJ"></label>
+            <div class="form-grid">
+              <label>STIR<input name="stir" inputmode="numeric" required pattern="[0-9]{9}" maxlength="9" placeholder="123456789"></label>
+              <label>Yil<input name="year" type="number" min="2000" max="2100" required></label>
+            </div>
+            <label>Davr<input name="period" maxlength="80" value="Yillik" placeholder="Yillik, I chorak, yanvar…"></label>
+            <label>Fayllar turi<select name="mode"><option value="separate">Alohida kirim va chiqim</option><option value="combined">Bitta umumiy fayl</option></select></label>
+            <div id="files-separate" class="stack file-fields">
+              <label>Kirim hujjati<input type="file" name="kirim" accept=".xlsx,.xls,.csv" required></label>
+              <label>Chiqim hujjati<input type="file" name="chiqim" accept=".xlsx,.xls,.csv" required></label>
+              <details><summary>Varaq va ustunlarni qo‘lda belgilash</summary><div class="form-grid" id="column-options"></div></details>
+            </div>
+            <div id="files-combined" class="file-fields" hidden><label>Umumiy hujjat<input type="file" name="combined" accept=".xlsx,.xls,.csv" disabled></label></div>
+            <small class="muted">.xlsx, .xls yoki .csv · Har bir fayl uchun 10 MB gacha</small>
+            <button class="button primary" type="submit">Tahlilni boshlash <span aria-hidden="true">↗</span></button>
+          </form>
+        </section>
+        <section class="panel history">
+          <p class="eyebrow">02 / ARXIV</p>
+          <div class="section-heading"><h2>Hisobotlar tarixi</h2><span id="history-count" class="badge" hidden></span></div>
+          <form id="history-filter" class="inline-form"><label>STIR bo‘yicha filtrlash<input name="stir" inputmode="numeric" pattern="[0-9]{9}" maxlength="9" placeholder="Barcha korxonalar"></label><button type="submit" class="button secondary">Filtrlash</button></form>
+          <div id="history-list" class="history-list" aria-live="polite"></div>
+        </section>
+      </div>
+    </section>
+
+    <section id="detail" hidden>
+      <a class="back-link" href="/">← Barcha hisobotlar</a>
+      <div class="page-heading detail-heading">
+        <div><p class="eyebrow">AUDIT / HISOBOT</p><h1 id="detail-company"></h1><p id="detail-meta"></p></div>
+        <div class="detail-actions"><span id="detail-status" class="badge"></span><a id="export" class="button primary" hidden>Excel yuklab olish ↓</a></div>
+      </div>
+      <section id="job-panel" class="panel" hidden><h2 id="job-heading"></h2><p class="muted" id="job-copy"></p><button id="retry" type="button" class="button secondary" hidden>Tahlilni qayta boshlash</button></section>
+      <div id="results" hidden>
+        <div id="metrics" class="metrics" aria-label="Hisobot ko‘rsatkichlari"></div>
+        <p id="report-warnings" class="notice" hidden></p>
+        <section class="panel data-panel">
+          <h2>Tahlil natijalari</h2>
+          <div id="report-tabs" class="tabs" aria-label="Hisobot bo‘limlari"></div>
+          <form id="row-search" class="inline-form"><label>Qidirish<input name="q" type="search" maxlength="100" placeholder="Tovar nomi yoki MXIK"></label><button class="button secondary" type="submit">Izlash</button></form>
+          <div id="report-rows" class="table-wrap" aria-live="polite"></div>
+          <nav class="pagination" aria-label="Natija sahifalari"><button id="prev-page" type="button" class="button secondary">← Oldingi</button><span id="page-number"></span><button id="next-page" type="button" class="button secondary">Keyingi →</button></nav>
+        </section>
+      </div>
+      <button class="text-button danger" id="delete" type="button" hidden>Hisobotni o‘chirish</button>
+      <dialog id="delete-dialog"><h2>Hisobotni o‘chirish</h2><p>Hisobot va unga tegishli fayllar butunlay o‘chiriladi.</p><form method="dialog" class="inline-form"><button class="button secondary" value="cancel">Bekor qilish</button><button class="button danger-button" value="delete">O‘chirish</button></form></dialog>
+    </section>
+
+    <noscript><p class="notice">Mat-Hisobotdan foydalanish uchun brauzeringizda JavaScript’ni yoqing.</p></noscript>
+  </main>
+  <footer class="shell footer"><span>MAT-HISOBOT</span><span>MODDIY QOLDIQ · KIRIMSIZ SOTUV · MARKIROVKA</span></footer>
+</body>
+</html>

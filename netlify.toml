@@ -1,0 +1,30 @@
+[build]
+  command = "npm run build"
+  publish = "public"
+
+[build.environment]
+  NODE_VERSION = "24"
+
+[dev]
+  command = "npm run dev"
+  targetPort = 8890
+  publish = "public"
+
+[server]
+  path = ["/api/reports", "/api/reports/*", "/accounts/login", "/batches/:id"]
+  includedFiles = ["public/index.html"]
+
+[functions]
+  directory = "netlify/functions"
+
+[functions."audit-background"]
+  node_bundler = "esbuild"
+  external_node_modules = ["pyodide"]
+  included_files = ["reports/__init__.py", "reports/services/*.py", "netlify/lib/audit_bridge.py", "netlify/lib/audit-packages/*"]
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "same-origin"

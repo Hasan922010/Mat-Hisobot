@@ -7,6 +7,14 @@ Korxonalar uchun **TMQ (Materiallar Hisoboti), Kirimsiz Sotuvlar va Raqamli Mark
 - **Data & Export:** Pandas, NumPy, OpenPyXL, xlrd, RapidFuzz, `google-genai`
 - **Frontend:** Django Templates + Tailwind CSS + HTMX + Alpine.js (offline vendored assets)
 
+## Netlify’da ishlatish
+
+Netlify deploy bosh sahifada audit ish maydonini ochadi. Netlify Identity orqali kiring yoki ro‘yxatdan o‘tish ochiq bo‘lsa hisob yarating. Alohida kirim va chiqim hujjatlarini yoki bitta umumiy `.xlsx`, `.xls` yoki `.csv` faylini yuklang (har bir fayl 10 MB gacha). Natija tayyor bo‘lgach, qoldiqlarni, kirimsiz sotuvlarni va markirovka tafovutlarini ko‘ring yoki Excel hisobotini yuklab oling.
+
+Netlify Database hisobot yozuvlarini, Netlify Blobs esa manba va eksport fayllarini saqlaydi. Hisobotlarni faqat ularni yaratgan foydalanuvchi ko‘ra oladi. Audit va Excel eksporti mavjud Python hisoblash kodidan foydalanadi. Django hisoblari va oldingi hisobotlar avtomatik ko‘chirilmaydi; Docker orqali ishlatish tartibi o‘zgarmagan.
+
+Netlify auditini tekshirish: `npm ci` va `npm test` (Node.js 24+).
+
 ## Docker orqali ishga tushirish (boshqa har qanday tizimda)
 
 1. Loyiha papkasini yangi server/kompyuterga ko'chiring va `.env.example` dan `.env` yarating:

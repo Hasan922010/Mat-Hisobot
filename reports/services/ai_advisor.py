@@ -6,8 +6,6 @@ import json
 import logging
 from decimal import Decimal
 
-from django.conf import settings
-
 logger = logging.getLogger(__name__)
 
 
@@ -95,6 +93,8 @@ def _fallback_summary(metrics: dict) -> str:
 
 def generate_ai_summary(batch, items: list[dict], marking_records: list[dict]) -> str:
     """Agregatlangan JSON asosida rahbariyat uchun qisqa iqtisodiy xulosa yaratadi."""
+    from django.conf import settings
+
     metrics = build_compact_metrics(batch, items, marking_records)
     api_key = getattr(settings, "GEMINI_API_KEY", "")
     if not api_key:
