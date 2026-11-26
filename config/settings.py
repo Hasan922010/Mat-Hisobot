@@ -13,6 +13,7 @@ if not DEBUG and (not SECRET_KEY or SECRET_KEY.startswith("django-insecure-")):
 ALLOWED_HOSTS = [h.strip() for h in os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h.strip()]
 
 INSTALLED_APPS = [
+    "reports",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -21,7 +22,6 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "django_q",
-    "reports",
 ]
 
 MIDDLEWARE = [

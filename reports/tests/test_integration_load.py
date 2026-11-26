@@ -463,3 +463,41 @@ def test_failed_batch_records_error_status_and_ai_fallback(monkeypatch, settings
     summary = ai_advisor.generate_ai_summary(batch, [], [])
     assert "Iqtisodiy Audit Xulosasi" in summary
     assert "DIO" in summary
+
+
+@pytest.mark.django_db
+def test_password_reset_flow(client, django_user_model, mailoutbox):
+    import re
+
+    user = django_user_model.objects.create_user(
+        username="reset_user",
+        email="reset@example.com",
+        password="OldPassword123!",
+    )
+    login_html = client.get(reverse("login")).content.decode("utf-8")
+    assert reverse("password_reset") in login_html
+
+    resp = client.post(reverse("password_reset"), {"email": "reset@example.com"})
+    assert resp.status_code == 302
+    assert len(mailoutbox) == 1
+
+    match = re.search(r"https?://[^/\s]+(/accounts/reset/[^\s]+)", mailoutbox[0].body)
+    assert match, mailoutbox[0].body
+    confirm_url = match.group(1)
+
+    # Django confirm view token'ni sessiyaga o'tkazib set-password URL ga redirect qiladi
+    get_resp = client.get(confirm_url, follow=True)
+    assert get_resp.status_code == 200
+    set_url = get_resp.redirect_chain[-1][0]
+
+    post_resp = client.post(
+        set_url,
+        {"new_password1": "NewStrongPass2026!", "new_password2": "NewStrongPass2026!"},
+        follow=True,
+    )
+    assert post_resp.status_code == 200
+    assert "Parol muvaffaqiyatli yangilandi" in post_resp.content.decode("utf-8")
+
+    user.refresh_from_db()
+    assert user.check_password("NewStrongPass2026!")
+    assert not user.check_password("OldPassword123!")
