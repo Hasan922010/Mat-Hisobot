@@ -64,7 +64,10 @@ def test_end_to_end_upload_task_detail_and_excel_export(auth_client, settings, t
 
     detail_resp = client.get(reverse("reports:batch_detail", args=[batch.pk]))
     assert detail_resp.status_code == 200
-    assert "Шакар оқ" in detail_resp.content.decode("utf-8")
+    detail_html = detail_resp.content.decode("utf-8")
+    assert "Шакар оқ" in detail_html
+    assert 'data-marking-code' in detail_html
+    assert ">M3<" in detail_html and ">GHOST1<" in detail_html
 
     # Qidiruvda barcha tab sonlari filtrlangan natijaga mos kelishi kerak
     filtered_resp = client.get(reverse("reports:batch_detail", args=[batch.pk]) + "?q=T2")

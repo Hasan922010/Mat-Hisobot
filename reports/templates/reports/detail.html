@@ -80,6 +80,8 @@
     <div x-data="{
       activeTab: '{{ tab }}',
       tabs: ['svod', 'shortage', 'marking', 'discrepancy'],
+      copiedKey: null,
+      copyTimer: null,
       setTab(t) {
         this.activeTab = t;
         const u = new URL(window.location);
@@ -90,6 +92,32 @@
         const next = this.tabs[(this.tabs.indexOf(this.activeTab) + delta + this.tabs.length) % this.tabs.length];
         this.setTab(next);
         document.getElementById('tab-' + next)?.focus();
+      },
+      copyText(text, key) {
+        const val = String(text || '').trim();
+        if (!val) return;
+        const done = () => {
+          this.copiedKey = key;
+          clearTimeout(this.copyTimer);
+          this.copyTimer = setTimeout(() => { this.copiedKey = null; }, 1500);
+        };
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(val).then(done);
+        } else {
+          const ta = document.createElement('textarea');
+          ta.value = val;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          ta.remove();
+          done();
+        }
+      },
+      copyAll(btn, key) {
+        const codes = Array.from(btn.closest('details').querySelectorAll('[data-marking-code]'), (el) => el.textContent.trim());
+        this.copyText(codes.join('\n'), key);
       }
     }" class="bg-white border border-[#dce2d9] rounded-2xl overflow-hidden">
       <div class="border-b border-[#dce2d9] px-6 py-4 flex flex-wrap items-center justify-between gap-4">
@@ -257,21 +285,34 @@
                 <td class="px-3 py-2.5 text-right font-mono-num">{{ m.kirim_markirovka_soni }}</td>
                 <td class="px-3 py-2.5 text-right font-mono-num">{{ m.chiqim_markirovka_soni }}</td>
                 <td class="px-3 py-2.5 text-right font-mono-num font-bold text-[#234c38]">{{ m.qoldiq_markirovka_soni }}</td>
-                <td class="px-3 py-2.5 text-[#5e6a61] max-w-sm">
+                <td class="px-3 py-2.5 text-[#5e6a61] max-w-md">
                   {% if m.qoldiq_markirovkalar %}
-                    <details class="group" x-data="{ copied: false }">
+                    <details class="group">
                       <summary class="cursor-pointer text-[#234c38] font-semibold hover:underline select-none">
                         {{ m.qoldiq_markirovkalar|length }} ta kodni ko'rish
                       </summary>
-                      <div class="mt-2 p-2.5 bg-[#f8faf7] border border-[#dce2d9] rounded-lg space-y-1.5">
-                        <div class="flex justify-end">
+                      <div class="mt-2 p-2.5 bg-[#f8faf7] border border-[#dce2d9] rounded-lg space-y-2">
+                        <div class="flex items-center justify-between gap-2 pb-1.5 border-b border-[#dce2d9]">
+                          <span class="text-[11px] text-[#5e6a61]">Har bir kodni alohida nusxalash</span>
                           <button type="button"
-                            @click="navigator.clipboard.writeText($el.closest('div').nextElementSibling.textContent.trim()); copied = true; setTimeout(() => copied = false, 1500)"
-                            class="text-[11px] px-2 py-0.5 rounded bg-white border border-[#dce2d9] hover:bg-[#edf3ed] text-[#234c38] font-semibold">
-                            <span x-text="copied ? '✓ Nusxalandi' : 'Nusxalash'"></span>
+                            @click="copyAll($el, 'q-all-{{ m.pk }}')"
+                            class="text-[11px] px-2 py-0.5 rounded bg-white border border-[#dce2d9] hover:bg-[#edf3ed] text-[#234c38] font-semibold whitespace-nowrap">
+                            <span x-text="copiedKey === 'q-all-{{ m.pk }}' ? '✓ Barchasi nusxalandi' : 'Barchasini nusxalash'"></span>
                           </button>
                         </div>
-                        <div class="font-mono-num text-[11px] break-all max-h-32 overflow-y-auto text-[#17241d]">{{ m.qoldiq_markirovkalar|join:", " }}</div>
+                        <ul class="divide-y divide-[#dce2d9] max-h-44 overflow-y-auto pr-1">
+                          {% for code in m.qoldiq_markirovkalar %}
+                            <li class="py-1.5 flex items-center justify-between gap-2">
+                              <span data-marking-code class="font-mono-num text-[11px] break-all text-[#17241d] select-all">{{ code }}</span>
+                              <button type="button"
+                                @click="copyText($el.previousElementSibling.textContent, 'q-{{ m.pk }}-{{ forloop.counter0 }}')"
+                                aria-label="Markirovka kodini nusxalash"
+                                class="shrink-0 text-[11px] px-2 py-0.5 rounded bg-white border border-[#dce2d9] hover:bg-[#edf3ed] text-[#234c38] font-semibold">
+                                <span x-text="copiedKey === 'q-{{ m.pk }}-{{ forloop.counter0 }}' ? '✓' : 'Nusxa'"></span>
+                              </button>
+                            </li>
+                          {% endfor %}
+                        </ul>
                       </div>
                     </details>
                   {% else %}
@@ -319,21 +360,34 @@
                 <td class="px-3 py-2.5 font-semibold text-[#17241d]">{{ d.tovar_nomi_kirill }}</td>
                 <td class="px-3 py-2.5 text-right font-mono-num font-bold">{{ d.kirim_farqi|floatformat:"0g" }}</td>
                 <td class="px-3 py-2.5 text-right font-mono-num font-bold">{{ d.chiqim_farqi|floatformat:"0g" }}</td>
-                <td class="px-3 py-2.5 text-[#9c2d25] max-w-sm">
+                <td class="px-3 py-2.5 text-[#9c2d25] max-w-md">
                   {% if d.noma_lum_chiqim_markirovkalar %}
-                    <details x-data="{ copied: false }">
+                    <details>
                       <summary class="cursor-pointer font-semibold hover:underline select-none">
                         {{ d.noma_lum_chiqim_markirovkalar|length }} ta noma'lum kod
                       </summary>
-                      <div class="mt-2 p-2.5 bg-white border border-[#e7c4be] rounded-lg space-y-1.5">
-                        <div class="flex justify-end">
+                      <div class="mt-2 p-2.5 bg-white border border-[#e7c4be] rounded-lg space-y-2">
+                        <div class="flex items-center justify-between gap-2 pb-1.5 border-b border-[#e7c4be]">
+                          <span class="text-[11px] text-[#792119]">Har bir kodni alohida nusxalash</span>
                           <button type="button"
-                            @click="navigator.clipboard.writeText($el.closest('div').nextElementSibling.textContent.trim()); copied = true; setTimeout(() => copied = false, 1500)"
-                            class="text-[11px] px-2 py-0.5 rounded bg-[#fbe8e5] border border-[#e7c4be] hover:bg-[#f6d5cf] text-[#792119] font-semibold">
-                            <span x-text="copied ? '✓ Nusxalandi' : 'Nusxalash'"></span>
+                            @click="copyAll($el, 'd-all-{{ d.pk }}')"
+                            class="text-[11px] px-2 py-0.5 rounded bg-[#fbe8e5] border border-[#e7c4be] hover:bg-[#f6d5cf] text-[#792119] font-semibold whitespace-nowrap">
+                            <span x-text="copiedKey === 'd-all-{{ d.pk }}' ? '✓ Barchasi nusxalandi' : 'Barchasini nusxalash'"></span>
                           </button>
                         </div>
-                        <div class="font-mono-num text-[11px] break-all max-h-32 overflow-y-auto text-[#792119]">{{ d.noma_lum_chiqim_markirovkalar|join:", " }}</div>
+                        <ul class="divide-y divide-[#f2d6d1] max-h-44 overflow-y-auto pr-1">
+                          {% for code in d.noma_lum_chiqim_markirovkalar %}
+                            <li class="py-1.5 flex items-center justify-between gap-2">
+                              <span data-marking-code class="font-mono-num text-[11px] break-all text-[#792119] select-all">{{ code }}</span>
+                              <button type="button"
+                                @click="copyText($el.previousElementSibling.textContent, 'd-{{ d.pk }}-{{ forloop.counter0 }}')"
+                                aria-label="Noma'lum markirovka kodini nusxalash"
+                                class="shrink-0 text-[11px] px-2 py-0.5 rounded bg-[#fbe8e5] border border-[#e7c4be] hover:bg-[#f6d5cf] text-[#792119] font-semibold">
+                                <span x-text="copiedKey === 'd-{{ d.pk }}-{{ forloop.counter0 }}' ? '✓' : 'Nusxa'"></span>
+                              </button>
+                            </li>
+                          {% endfor %}
+                        </ul>
                       </div>
                     </details>
                   {% else %}
