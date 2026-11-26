@@ -92,8 +92,34 @@ def test_excel_formula_injection_is_neutralized():
             "ortacha_narx": Decimal("100"),
         }
     ]
-    stream = build_report_workbook("Test", "123", 2026, items, [])
+    marking = [
+        {
+            "tovar_id": "=1+1",
+            "tovar_nomi_kirill": "+SUM(A1:A2)",
+            "bosh_markirovka_soni": 0,
+            "bosh_markirovkalar": [],
+            "kirim_tovar_soni": Decimal("1"),
+            "kirim_markirovka_soni": 0,
+            "kirim_markirovkalar": [],
+            "chiqim_tovar_soni": Decimal("2"),
+            "chiqim_markirovka_soni": 1,
+            "chiqim_markirovkalar": ["=GHOST"],
+            "qoldiq_markirovka_soni": 0,
+            "qoldiq_markirovkalar": [],
+            "has_discrepancy": True,
+            "kirim_farqi": Decimal("-1"),
+            "chiqim_farqi": Decimal("-1"),
+            "noma_lum_chiqim_markirovkalar": ["=GHOST"],
+            "kamchilik_sababi": "@cmd",
+        }
+    ]
+    stream = build_report_workbook("Test", "123", 2026, items, marking)
     wb = openpyxl.load_workbook(stream, data_only=False)
     assert wb["Moddiy_Hisobot"]["A6"].value == "'=CMD|'/C calc'!A0"
     assert wb["Kirimsiz_Sotuv_Tahlili"]["A4"].value == "'=1+1"
     assert wb["Kirimsiz_Sotuv_Tahlili"]["B4"].value == "'=CMD|'/C calc'!A0"
+    assert wb["Markirovka_Materiallar"]["A2"].value == "'=1+1"
+    assert wb["Markirovka_Materiallar"]["B2"].value == "'+SUM(A1:A2)"
+    assert wb["Markirovka_Kamchiliklari"]["A2"].value == "'=1+1"
+    assert wb["Markirovka_Kamchiliklari"]["B2"].value == "'+SUM(A1:A2)"
+    assert wb["Markirovka_Kamchiliklari"]["J2"].value == "'@cmd"

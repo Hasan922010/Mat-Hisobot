@@ -43,6 +43,46 @@ def parse_marking_codes(raw) -> list[str]:
     return unique
 
 
+def build_discrepancy_reason(
+    kirim_tovar_soni: Decimal,
+    kirim_markirovka_soni: int,
+    chiqim_tovar_soni: Decimal,
+    chiqim_markirovka_soni: int,
+    noma_lum_count: int,
+) -> str:
+    """Markirovka kamchiligi sababini oddiy, tushunarli tilda qaytaradi."""
+    reasons: list[str] = []
+    kirim_farqi = Decimal(kirim_markirovka_soni) - kirim_tovar_soni
+    chiqim_farqi = Decimal(chiqim_markirovka_soni) - chiqim_tovar_soni
+
+    if kirim_farqi != 0:
+        k_q, diff = round(kirim_tovar_soni), round(kirim_farqi)
+        if kirim_markirovka_soni == 0 and diff < 0:
+            reasons.append(f"Kirimda {k_q} ta tovar bor, lekin markirovka kiritilmagan ({abs(diff)} ta yetishmaydi)")
+        elif diff < 0:
+            reasons.append(f"Kirimda {k_q} ta tovar bor, lekin {kirim_markirovka_soni} ta markirovka kiritilgan ({abs(diff)} ta yetishmaydi)")
+        elif diff > 0:
+            reasons.append(f"Kirimda {k_q} ta tovar bor, lekin {kirim_markirovka_soni} ta markirovka kiritilgan ({diff} ta ortiqcha)")
+        else:
+            reasons.append(f"Kirimda tovar soni va markirovka soni ({kirim_markirovka_soni} ta) mos emas")
+
+    if chiqim_farqi != 0:
+        c_q, diff = round(chiqim_tovar_soni), round(chiqim_farqi)
+        if chiqim_markirovka_soni == 0 and diff < 0:
+            reasons.append(f"Chiqimda {c_q} ta tovar sotilgan, lekin markirovka ko'rsatilmagan ({abs(diff)} ta yetishmaydi)")
+        elif diff < 0:
+            reasons.append(f"Chiqimda {c_q} ta tovar sotilgan, lekin {chiqim_markirovka_soni} ta markirovka ko'rsatilgan ({abs(diff)} ta yetishmaydi)")
+        elif diff > 0:
+            reasons.append(f"Chiqimda {c_q} ta tovar sotilgan, lekin {chiqim_markirovka_soni} ta markirovka ko'rsatilgan ({diff} ta ortiqcha)")
+        else:
+            reasons.append(f"Chiqimda tovar soni va markirovka soni ({chiqim_markirovka_soni} ta) mos emas")
+
+    if noma_lum_count > 0:
+        reasons.append(f"Kirimda yo'q bo'lgan {noma_lum_count} ta markirovka kodi sotilib ketgan")
+
+    return ". ".join(reasons)
+
+
 def audit_marking_record(
     tovar_id: str,
     tovar_nomi_kirill: str,
@@ -70,21 +110,13 @@ def audit_marking_record(
     kirim_farqi = Decimal(len(kirim_codes)) - kirim_tovar_soni
     chiqim_farqi = Decimal(len(chiqim_codes)) - chiqim_tovar_soni
 
-    reasons: list[str] = []
-    if kirim_farqi != 0:
-        reasons.append(
-            f"Kirim tafovuti: tovar soni ({kirim_tovar_soni}) va markirovka soni ({len(kirim_codes)}) mos emas (farq: {kirim_farqi:+})"
-        )
-    if chiqim_farqi != 0:
-        reasons.append(
-            f"Chiqim tafovuti: tovar soni ({chiqim_tovar_soni}) va markirovka soni ({len(chiqim_codes)}) mos emas (farq: {chiqim_farqi:+})"
-        )
-    if noma_lum_codes:
-        reasons.append(
-            f"Noma'lum markirovka sotuvi (Ghost Marking): {len(noma_lum_codes)} dona kirimda bo'lmagan kod sotilgan"
-        )
-
-    has_discrepancy = bool(reasons)
+    kamchilik_sababi = build_discrepancy_reason(
+        kirim_tovar_soni=kirim_tovar_soni,
+        kirim_markirovka_soni=len(kirim_codes),
+        chiqim_tovar_soni=chiqim_tovar_soni,
+        chiqim_markirovka_soni=len(chiqim_codes),
+        noma_lum_count=len(noma_lum_codes),
+    )
 
     return {
         "tovar_id": tovar_id,
@@ -99,9 +131,9 @@ def audit_marking_record(
         "chiqim_markirovkalar": chiqim_codes,
         "qoldiq_markirovka_soni": len(qoldiq_codes),
         "qoldiq_markirovkalar": qoldiq_codes,
-        "has_discrepancy": has_discrepancy,
+        "has_discrepancy": bool(kamchilik_sababi),
         "kirim_farqi": kirim_farqi,
         "chiqim_farqi": chiqim_farqi,
         "noma_lum_chiqim_markirovkalar": noma_lum_codes,
-        "kamchilik_sababi": "; ".join(reasons),
+        "kamchilik_sababi": kamchilik_sababi,
     }

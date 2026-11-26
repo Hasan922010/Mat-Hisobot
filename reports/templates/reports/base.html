@@ -5,6 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Mat-Hisobot — TMQ va Markirovka Tahlili{% endblock %}</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'reports/img/favicon.svg' %}">
   <script src="{% static 'reports/vendor/tailwindcss.js' %}"></script>
   <script src="{% static 'reports/vendor/htmx.min.js' %}"></script>
   <script defer src="{% static 'reports/vendor/alpine.min.js' %}"></script>
@@ -20,7 +21,7 @@
   <header class="bg-slate-950 text-white border-b border-slate-800 sticky top-0 z-30">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
       <a href="{% url 'reports:dashboard' %}" class="flex items-center gap-3 font-semibold text-lg tracking-tight focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400 rounded-lg">
-        <span class="bg-gradient-to-br from-blue-500 to-blue-700 text-white px-2.5 py-1 rounded-lg text-sm font-bold shadow-sm">MH</span>
+        <img src="{% static 'reports/img/favicon.svg' %}" alt="" width="32" height="32" class="h-8 w-8 rounded-lg shadow-sm">
         <span>Mat-Hisobot <span class="text-slate-400 font-normal text-xs sm:text-sm hidden sm:inline">&bull; TMQ &amp; Markirovka Auditi</span></span>
       </a>
       <nav aria-label="Asosiy navigatsiya" class="flex items-center gap-4 text-sm">

@@ -84,8 +84,9 @@ def process_report_batch(batch_id: int) -> None:
 
     except Exception as exc:
         logger.exception("ReportBatch #%s qayta ishlashda xatolik", batch_id)
+        safe_msg = str(exc) if isinstance(exc, ValueError) else "Hisobotni qayta ishlashda kutilmagan xatolik yuz berdi."
         ReportBatch.objects.filter(pk=batch_id).update(
             status="FAILED",
-            error_message=str(exc),
+            error_message=safe_msg,
         )
         raise

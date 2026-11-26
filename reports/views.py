@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-import json
+import logging
 import tempfile
 
 from django.contrib import messages
@@ -21,6 +21,8 @@ from .services.audit_engine import check_files_compatibility, map_headers, read_
 from .services.excel_builder import build_report_workbook
 from .validators import validate_uploaded_file
 
+logger = logging.getLogger(__name__)
+
 
 def _get_user_batch(request, pk: int) -> ReportBatch:
     qs = ReportBatch.objects.select_related("company")
@@ -31,11 +33,12 @@ def _get_user_batch(request, pk: int) -> ReportBatch:
 
 def _extract_col_map(post_data, prefix: str) -> dict[str, str]:
     marking_canonical = "kirim_markirovka" if prefix == "kirim" else "chiqim_markirovka"
+    qty_canonical = "kirim_soni" if prefix == "kirim" else "chiqim_soni"
     field_pairs = (
         ("tovar_id", f"{prefix}_col_mxik"),
         (marking_canonical, f"{prefix}_col_markirovka"),
         ("tovar_nomi", f"{prefix}_col_tovar"),
-        ("quantity", f"{prefix}_col_soni"),
+        (qty_canonical, f"{prefix}_col_soni"),
         ("summa", f"{prefix}_col_summa"),
     )
     return {
@@ -65,11 +68,12 @@ def preview_file(request):
             "reports/partials/file_preview.html",
             {"role": role, "error": exc.message},
         )
-    except Exception as exc:
+    except Exception:
+        logger.exception("Fayl preview o'qishda kutilmagan xatolik")
         return render(
             request,
             "reports/partials/file_preview.html",
-            {"role": role, "error": f"Faylni o'qishda xatolik: {exc}"},
+            {"role": role, "error": "Faylni o'qishda xatolik yuz berdi. Fayl buzilmaganini va formatini tekshiring."},
         )
 
     headers = preview["headers"]
@@ -207,8 +211,9 @@ def dashboard(request):
             defaults={"name": company_name},
         )
         if not created and company.name != company_name:
-            company.name = company_name
-            company.save(update_fields=["name"])
+            if request.user.is_superuser or not company.batches.exclude(created_by=request.user).exists():
+                company.name = company_name
+                company.save(update_fields=["name"])
 
         batch = ReportBatch.objects.create(
             company=company,
@@ -232,20 +237,23 @@ def dashboard(request):
 
     selected_stir = request.GET.get("stir", "").strip()
     batches_qs = ReportBatch.objects.select_related("company").all()
-    if not request.user.is_superuser:
+    if request.user.is_superuser:
+        companies_qs = Company.objects.all()
+    else:
         batches_qs = batches_qs.filter(created_by=request.user)
+        companies_qs = Company.objects.filter(batches__created_by=request.user).distinct()
+
     if selected_stir:
         batches_qs = batches_qs.filter(company__stir=selected_stir)
 
-    companies = Company.objects.all()[:50]
+    companies = companies_qs[:50]
     batches = batches_qs[:50]
 
-    # Davrlararo solishtirish: bir xil korxonaning yakunlangan hisobotlari
+    # Davrlararo solishtirish: faqat foydalanuvchiga ruxsat berilgan yakunlangan hisobotlar
     comparison_batches = []
     if selected_stir:
         comparison_batches = list(
-            ReportBatch.objects.filter(company__stir=selected_stir, status="COMPLETED")
-            .order_by("year", "created_at")
+            batches_qs.filter(status="COMPLETED").order_by("year", "created_at")
         )
 
     return render(
@@ -301,8 +309,10 @@ def batch_detail(request, pk: int):
             "shortage_page": shortage_page,
             "marking_page": marking_page,
             "discrepancy_page": discrepancy_page,
+            "items_count": items_qs.count(),
             "shortage_count": shortage_qs.count(),
             "marking_count": marking_qs.count(),
+            "discrepancy_count": discrepancy_qs.count(),
             "total_ending_asset": total_ending_asset,
         },
     )
@@ -324,15 +334,19 @@ def export_excel(request, pk: int):
     marking_records = batch.marking_records.all().order_by("id").iterator(chunk_size=5000)
 
     spooled = tempfile.SpooledTemporaryFile(max_size=10 * 1024 * 1024)
-    build_report_workbook(
-        company_name=batch.company.name,
-        company_stir=batch.company.stir,
-        year=batch.year,
-        items=items,
-        marking_records=marking_records,
-        period_label=batch.period_label,
-        output_file=spooled,
-    )
+    try:
+        build_report_workbook(
+            company_name=batch.company.name,
+            company_stir=batch.company.stir,
+            year=batch.year,
+            items=items,
+            marking_records=marking_records,
+            period_label=batch.period_label,
+            output_file=spooled,
+        )
+    except Exception:
+        spooled.close()
+        raise
     filename = f"MatHisobot_{batch.company.stir}_{batch.year}_{batch.pk}.xlsx"
     return FileResponse(
         spooled,
@@ -347,6 +361,9 @@ def export_excel(request, pk: int):
 def delete_batch(request, pk: int):
     batch = _get_user_batch(request, pk)
     label = f"{batch.company.name} ({batch.year})"
+    for f in (batch.uploaded_file, batch.kirim_file, batch.chiqim_file):
+        if f and f.name:
+            f.delete(save=False)
     batch.delete()
     messages.info(request, f"{label} hisoboti o'chirildi.")
     return redirect("reports:dashboard")

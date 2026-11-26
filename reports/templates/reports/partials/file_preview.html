@@ -29,14 +29,19 @@
           const n = parseFloat(cleaned);
           return Number.isFinite(n) ? n : 0;
         },
+        intVal(row, colName) {
+          const raw = this.cellVal(row, colName);
+          if (raw === '-') return '-';
+          return Math.round(this.parseNum(raw)).toLocaleString('ru-RU');
+        },
         calcPrice(row) {
           const sIdx = this.headers.indexOf(this.soni);
           const sumIdx = this.headers.indexOf(this.summa);
           if (sIdx === -1 || sumIdx === -1) return '-';
           const q = this.parseNum(row[sIdx]);
           const total = this.parseNum(row[sumIdx]);
-          if (q <= 0) return '0.00';
-          return (total / q).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          if (q <= 0) return '0';
+          return Math.round(total / q).toLocaleString('ru-RU');
         }
       };
     })()"
@@ -140,8 +145,8 @@
               <td class="px-2.5 py-1 whitespace-nowrap font-mono-num text-slate-700" x-text="cellVal(row, mxik)"></td>
               <td class="px-2.5 py-1 max-w-[160px] truncate font-mono-num text-slate-600" :title="cellVal(row, markirovka)" x-text="cellVal(row, markirovka)"></td>
               <td class="px-2.5 py-1 font-medium text-slate-900 max-w-xs truncate" :title="cellVal(row, tovar)" x-text="cellVal(row, tovar)"></td>
-              <td class="px-2.5 py-1 whitespace-nowrap text-right font-mono-num text-slate-700" x-text="cellVal(row, soni)"></td>
-              <td class="px-2.5 py-1 whitespace-nowrap text-right font-mono-num text-slate-700" x-text="cellVal(row, summa)"></td>
+              <td class="px-2.5 py-1 whitespace-nowrap text-right font-mono-num text-slate-700" x-text="intVal(row, soni)"></td>
+              <td class="px-2.5 py-1 whitespace-nowrap text-right font-mono-num text-slate-700" x-text="intVal(row, summa)"></td>
               <td class="px-2.5 py-1 border-l border-slate-200 font-semibold text-emerald-700 text-right whitespace-nowrap font-mono-num"
                 x-text="calcPrice(row)"></td>
             </tr>

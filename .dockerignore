@@ -1,0 +1,14 @@
+.git
+.gitignore
+.venv
+.pgdata
+.pytest_cache
+__pycache__
+*.py[cod]
+.env
+media/
+staticfiles/
+*.xlsx
+*.xls
+*.log
+run.sh

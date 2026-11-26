@@ -171,6 +171,8 @@ def _clean_numeric_series(series: pd.Series) -> pd.Series:
     s = s.str.replace("\xa0", "", regex=False).str.replace(" ", "", regex=False)
     s = s.str.replace(",", ".", regex=False)
     s = s.str.replace(r"[^\d.\-]", "", regex=True)
+    # Bir nechta nuqta bo'lsa (masalan "1.200.50"), faqat oxirgi kasr nuqtasini qoldiramiz
+    s = s.str.replace(r"\.(?=.*\.)", "", regex=True)
     return pd.to_numeric(s, errors="coerce").fillna(0.0)
 
 
@@ -180,16 +182,26 @@ _SHEET_ROLE_KEYWORDS = {
 }
 
 
+def _select_sheet_name(sheet_names: list[str], role: str | None = None, sheet_name: str | None = None) -> str | None:
+    if sheet_name and sheet_name in sheet_names:
+        return sheet_name
+    if role in _SHEET_ROLE_KEYWORDS:
+        keywords = _SHEET_ROLE_KEYWORDS[role]
+        for name in sheet_names:
+            low = name.strip().lower()
+            if any(kw in low for kw in keywords):
+                return name
+    return sheet_names[0] if sheet_names else None
+
+
 def _select_worksheet(wb, role: str | None = None, sheet_name: str | None = None):
     """Ko'p varaqli Excel faylidan rolga (kirim/chiqim) yoki tanlangan nomga mos varaqni tanlaydi."""
     if sheet_name and sheet_name in wb.sheetnames:
         return wb[sheet_name]
     if role in _SHEET_ROLE_KEYWORDS:
-        keywords = _SHEET_ROLE_KEYWORDS[role]
-        for name in wb.sheetnames:
-            low = name.strip().lower()
-            if any(kw in low for kw in keywords):
-                return wb[name]
+        chosen = _select_sheet_name(list(wb.sheetnames), role=role)
+        if chosen and chosen in wb.sheetnames:
+            return wb[chosen]
     return wb.active
 
 
@@ -203,11 +215,15 @@ def _iter_file_chunks(
     suffix = file_path.suffix.lower()
     if suffix == ".csv":
         for chunk in pd.read_csv(file_path, chunksize=chunk_size, dtype=str, keep_default_na=False):
+            chunk.columns = _deduplicate_headers(chunk.columns)
             yield chunk
         return
 
     if suffix == ".xls":
-        df = pd.read_excel(file_path, sheet_name=sheet_name or 0, dtype=str, keep_default_na=False)
+        with pd.ExcelFile(file_path, engine="xlrd") as xls:
+            chosen = _select_sheet_name(list(xls.sheet_names), role=role, sheet_name=sheet_name) or 0
+            df = xls.parse(sheet_name=chosen, dtype=str, keep_default_na=False)
+        df.columns = _deduplicate_headers(df.columns)
         for start in range(0, max(len(df), 1), chunk_size):
             yield df.iloc[start : start + chunk_size]
         return
@@ -259,19 +275,24 @@ def read_file_preview(
     try:
         if suffix == ".csv":
             df = pd.read_csv(file_obj_or_path, nrows=max_rows, dtype=str, keep_default_na=False)
+            headers = _deduplicate_headers(df.columns)
             return {
-                "headers": [str(c).strip() for c in df.columns],
+                "headers": headers,
                 "rows": df.values.tolist() if max_rows > 0 else [],
                 "sheets": [],
                 "selected_sheet": "",
             }
         if suffix == ".xls":
-            df = pd.read_excel(file_obj_or_path, sheet_name=sheet_name or 0, nrows=max_rows, dtype=str, keep_default_na=False)
+            with pd.ExcelFile(file_obj_or_path, engine="xlrd") as xls:
+                sheets = list(xls.sheet_names)
+                chosen = _select_sheet_name(sheets, role=role, sheet_name=sheet_name) or (sheets[0] if sheets else 0)
+                df = xls.parse(sheet_name=chosen, nrows=max_rows, dtype=str, keep_default_na=False)
+            headers = _deduplicate_headers(df.columns)
             return {
-                "headers": [str(c).strip() for c in df.columns],
+                "headers": headers,
                 "rows": df.values.tolist() if max_rows > 0 else [],
-                "sheets": [],
-                "selected_sheet": "",
+                "sheets": sheets,
+                "selected_sheet": chosen if isinstance(chosen, str) else "",
             }
         wb = openpyxl.load_workbook(file_obj_or_path, read_only=True, data_only=True)
         try:
@@ -492,9 +513,13 @@ def _read_chunks_into_acc(
                 if mode in ("combined", "chiqim") else None
             )
 
-            for idx_row in df.index:
-                tid = df.at[idx_row, "tovar_id"]
-                tname = df.at[idx_row, "tovar_nomi_kirill"]
+            tids = df["tovar_id"].tolist()
+            tnames = df["tovar_nomi_kirill"].tolist()
+            bosh_vals = _get_series(raw_df, bosh_col, df.index).tolist() if bosh_col else None
+            kirim_vals = _get_series(raw_df, kirim_col, df.index).tolist() if kirim_col else None
+            chiqim_vals = _get_series(raw_df, chiqim_col, df.index).tolist() if chiqim_col else None
+
+            for i, (tid, tname) in enumerate(zip(tids, tnames)):
                 key = tid if tid else tname
                 rec = marking_acc.setdefault(
                     key,
@@ -506,12 +531,12 @@ def _read_chunks_into_acc(
                         "chiqim": [],
                     },
                 )
-                if bosh_col:
-                    rec["bosh"].extend(parse_marking_codes(raw_df.at[idx_row, bosh_col]))
-                if kirim_col:
-                    rec["kirim"].extend(parse_marking_codes(raw_df.at[idx_row, kirim_col]))
-                if chiqim_col:
-                    rec["chiqim"].extend(parse_marking_codes(raw_df.at[idx_row, chiqim_col]))
+                if bosh_vals is not None and bosh_vals[i]:
+                    rec["bosh"].extend(parse_marking_codes(bosh_vals[i]))
+                if kirim_vals is not None and kirim_vals[i]:
+                    rec["kirim"].extend(parse_marking_codes(kirim_vals[i]))
+                if chiqim_vals is not None and chiqim_vals[i]:
+                    rec["chiqim"].extend(parse_marking_codes(chiqim_vals[i]))
 
         # Chunk ichida birlamchi guruhlash (vaznli o'rtacha narx uchun summa va miqdorni jamlaymiz)
         df["group_key"] = np.where(df["tovar_id"] != "", df["tovar_id"], df["tovar_nomi_kirill"])
@@ -567,6 +592,26 @@ def _finalize_svod_and_marking(
             combined.loc[no_id_mask, "tovar_nomi_kirill"] = mapped_names
             combined.loc[no_id_mask, "group_key"] = mapped_names
 
+            # Fuzzy birlashtirilgan tovarlarning markirovka kodlarini ham kanonik kalitga yig'amiz
+            if has_marking_cols and marking_acc:
+                merged_marking: dict[str, dict] = {}
+                for old_key, m_data in marking_acc.items():
+                    new_key = name_map.get(old_key, old_key) if not m_data["tovar_id"] else old_key
+                    target = merged_marking.setdefault(
+                        new_key,
+                        {
+                            "tovar_id": m_data["tovar_id"],
+                            "tovar_nomi_kirill": new_key if not m_data["tovar_id"] else m_data["tovar_nomi_kirill"],
+                            "bosh": [],
+                            "kirim": [],
+                            "chiqim": [],
+                        },
+                    )
+                    target["bosh"].extend(m_data["bosh"])
+                    target["kirim"].extend(m_data["kirim"])
+                    target["chiqim"].extend(m_data["chiqim"])
+                marking_acc = merged_marking
+
     # Yakuniy Svod guruhlash (BHMS 4: Kirim tannarxi ustuvor, Chiqim narxi faqat kirim bo'lmaganda)
     final_df = combined.groupby("group_key", as_index=False).agg(
         tovar_id=("tovar_id", "first"),
@@ -620,23 +665,29 @@ def _finalize_svod_and_marking(
     q3 = Decimal("0.001")
 
     for row in final_df.itertuples(index=False):
-        ortiqcha_summa = Decimal(str(round(row.farq_ortiqcha_summa, 2))).quantize(q2, rounding=ROUND_HALF_UP)
+        d_narx = Decimal(f"{row.ortacha_narx:.6f}").quantize(q2, rounding=ROUND_HALF_UP)
+        d_bosh = Decimal(f"{row.bosh_qoldiq_soni:.6f}").quantize(q3, rounding=ROUND_HALF_UP)
+        d_kirim = Decimal(f"{row.kirim_soni:.6f}").quantize(q3, rounding=ROUND_HALF_UP)
+        d_chiqim = Decimal(f"{row.chiqim_soni:.6f}").quantize(q3, rounding=ROUND_HALF_UP)
+        d_qoldiq = Decimal(f"{row.farq_qoldiq_soni:.6f}").quantize(q3, rounding=ROUND_HALF_UP)
+        d_ortiqcha = Decimal(f"{row.farq_ortiqcha_soni:.6f}").quantize(q3, rounding=ROUND_HALF_UP)
+        ortiqcha_summa = (d_ortiqcha * d_narx).quantize(q2, rounding=ROUND_HALF_UP)
         total_shortage_amount += ortiqcha_summa
         items.append(
             {
                 "tovar_id": str(row.tovar_id)[:100],
                 "tovar_nomi_kirill": str(row.tovar_nomi_kirill)[:500],
                 "birligi": (str(row.birligi)[:30] or "dona"),
-                "ortacha_narx": Decimal(str(round(row.ortacha_narx, 2))).quantize(q2, rounding=ROUND_HALF_UP),
-                "bosh_qoldiq_soni": Decimal(str(round(row.bosh_qoldiq_soni, 3))).quantize(q3, rounding=ROUND_HALF_UP),
-                "bosh_qoldiq_summa": Decimal(str(round(row.bosh_qoldiq_summa, 2))).quantize(q2, rounding=ROUND_HALF_UP),
-                "kirim_soni": Decimal(str(round(row.kirim_soni, 3))).quantize(q3, rounding=ROUND_HALF_UP),
-                "kirim_summa": Decimal(str(round(row.kirim_summa, 2))).quantize(q2, rounding=ROUND_HALF_UP),
-                "chiqim_soni": Decimal(str(round(row.chiqim_soni, 3))).quantize(q3, rounding=ROUND_HALF_UP),
-                "chiqim_summa": Decimal(str(round(row.chiqim_summa, 2))).quantize(q2, rounding=ROUND_HALF_UP),
-                "farq_qoldiq_soni": Decimal(str(round(row.farq_qoldiq_soni, 3))).quantize(q3, rounding=ROUND_HALF_UP),
-                "farq_qoldiq_summa": Decimal(str(round(row.farq_qoldiq_summa, 2))).quantize(q2, rounding=ROUND_HALF_UP),
-                "farq_ortiqcha_soni": Decimal(str(round(row.farq_ortiqcha_soni, 3))).quantize(q3, rounding=ROUND_HALF_UP),
+                "ortacha_narx": d_narx,
+                "bosh_qoldiq_soni": d_bosh,
+                "bosh_qoldiq_summa": (d_bosh * d_narx).quantize(q2, rounding=ROUND_HALF_UP),
+                "kirim_soni": d_kirim,
+                "kirim_summa": (d_kirim * d_narx).quantize(q2, rounding=ROUND_HALF_UP),
+                "chiqim_soni": d_chiqim,
+                "chiqim_summa": (d_chiqim * d_narx).quantize(q2, rounding=ROUND_HALF_UP),
+                "farq_qoldiq_soni": d_qoldiq,
+                "farq_qoldiq_summa": (d_qoldiq * d_narx).quantize(q2, rounding=ROUND_HALF_UP),
+                "farq_ortiqcha_soni": d_ortiqcha,
                 "farq_ortiqcha_summa": ortiqcha_summa,
                 "is_fuzzy_merged": bool(row.is_fuzzy_merged),
             }

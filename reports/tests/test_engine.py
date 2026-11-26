@@ -231,3 +231,45 @@ def test_fuzzy_matcher_merges_near_duplicates_and_keeps_distinct():
     assert mapping["Шакар  оқ 1кг"] == "Шакар оқ 1кг"
     assert mapping["Шакар оқ 1к"] == "Шакар оқ 1кг"
     assert mapping["Ёғ кунгабоқар 5л"] == "Ёғ кунгабоқар 5л"
+
+
+def test_fuzzy_merged_items_preserve_and_merge_marking_codes(tmp_path):
+    kirim_path = tmp_path / "k.csv"
+    chiqim_path = tmp_path / "c.csv"
+
+    pd.DataFrame([
+        {"Tovar": "Shakar oq 1kg", "Soni": "2", "Summa": "20000", "Markirovka": "DM1;DM2"},
+    ]).to_csv(kirim_path, index=False)
+    pd.DataFrame([
+        {"Tovar": "Shakar oq 1k", "Soni": "1", "Summa": "15000", "Markirovka": "DM1"},
+    ]).to_csv(chiqim_path, index=False)
+
+    res = process_separate_files(kirim_path, chiqim_path)
+    assert len(res["items"]) == 1
+    assert len(res["marking_records"]) == 1
+    m = res["marking_records"][0]
+    assert m["has_discrepancy"] is False
+    assert m["qoldiq_markirovkalar"] == ["DM2"]
+    assert m["noma_lum_chiqim_markirovkalar"] == []
+
+
+def test_multidot_numbers_round_half_up_and_xlrd_available(tmp_path):
+    import xlrd  # .xls fayllarni o'qish uchun o'rnatilgan bo'lishi shart
+
+    assert xlrd.__version__
+    csv_path = tmp_path / "multidot.csv"
+    csv_path.write_text(
+        "Tovar,Tovar,Kirim,Chiqim,Narx\nMahsulot A,Izoh,1,3,1.200.50\nMahsulot B,Izoh,0.5,1,10.01\n",
+        encoding="utf-8",
+    )
+    prev = read_file_preview(csv_path)
+    assert len(set(prev["headers"])) == len(prev["headers"])
+    assert prev["headers"][0] == "Tovar"
+
+    res = process_inventory_file(csv_path)
+    by_name = {it["tovar_nomi_kirill"]: it for it in res["items"]}
+    # "1.200.50" -> 1200.50 (0.0 ga tushib ketmasligi kerak)
+    assert by_name["Маҳсулот А"]["ortacha_narx"] == Decimal("1200.50")
+    assert by_name["Маҳсулот А"]["farq_ortiqcha_summa"] == Decimal("2401.00")
+    # 0.5 * 10.01 = 5.005 -> ROUND_HALF_UP bilan 5.01 (bank yaxlitlashida 5.00 bo'lib qolardi)
+    assert by_name["Маҳсулот Б"]["farq_ortiqcha_summa"] == Decimal("5.01")

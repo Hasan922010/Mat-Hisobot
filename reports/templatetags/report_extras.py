@@ -10,6 +10,21 @@ register = template.Library()
 
 _BOLD_RE = re.compile(r"\*\*(.+?)\*\*")
 _CODE_RE = re.compile(r"`([^`]+?)`")
+_DECIMAL_RE = re.compile(r"[+-]?\d+\.\d+")
+
+
+@register.filter(name="int_numbers")
+def int_numbers(value: str) -> str:
+    """Matndagi kasr sonlarni (masalan 3.000, -2.000) butun son ko'rinishiga o'giradi."""
+    if not value:
+        return ""
+
+    def _repl(match: re.Match) -> str:
+        raw = match.group(0)
+        val = round(float(raw))
+        return f"{val:+}" if raw.startswith("+") else str(val)
+
+    return _DECIMAL_RE.sub(_repl, str(value))
 
 
 def _inline_format(text: str) -> str:

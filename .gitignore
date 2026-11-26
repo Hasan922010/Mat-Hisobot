@@ -222,6 +222,9 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# Local PostgreSQL data & media
+# Local PostgreSQL data, media & spreadsheets
 .pgdata/
 media/
+staticfiles/
+*.xlsx
+*.xls

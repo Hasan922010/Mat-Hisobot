@@ -82,6 +82,7 @@ def build_report_workbook(
       4. Markirovka_Materiallar
       5. Markirovka_Kamchiliklari
     """
+    # shortcut: standard openpyxl Workbook holds cells in RAM; move to WriteOnlyWorksheet or async file export if batches exceed ~100k rows
     wb = openpyxl.Workbook()
 
     # =========================================================================
@@ -428,8 +429,8 @@ def build_report_workbook(
             discrepancy_rows.append(rec)
 
         vals = [
-            _get(rec, "tovar_id", ""),
-            _get(rec, "tovar_nomi_kirill", ""),
+            _safe_cell_text(_get(rec, "tovar_id", "")),
+            _safe_cell_text(_get(rec, "tovar_nomi_kirill", "")),
             int(_get(rec, "bosh_markirovka_soni", 0)),
             _join_codes(_get(rec, "bosh_markirovkalar", [])),
             float(_get(rec, "kirim_tovar_soni", 0)),
@@ -471,8 +472,8 @@ def build_report_workbook(
 
     for r_idx, rec in enumerate(discrepancy_rows, start=2):
         vals = [
-            _get(rec, "tovar_id", ""),
-            _get(rec, "tovar_nomi_kirill", ""),
+            _safe_cell_text(_get(rec, "tovar_id", "")),
+            _safe_cell_text(_get(rec, "tovar_nomi_kirill", "")),
             float(_get(rec, "kirim_tovar_soni", 0)),
             int(_get(rec, "kirim_markirovka_soni", 0)),
             float(_get(rec, "kirim_farqi", 0)),
@@ -480,7 +481,7 @@ def build_report_workbook(
             int(_get(rec, "chiqim_markirovka_soni", 0)),
             float(_get(rec, "chiqim_farqi", 0)),
             _join_codes(_get(rec, "noma_lum_chiqim_markirovkalar", [])),
-            _get(rec, "kamchilik_sababi", ""),
+            _safe_cell_text(_get(rec, "kamchilik_sababi", "")),
         ]
         for col_idx, val in enumerate(vals, start=1):
             c = ws3.cell(row=r_idx, column=col_idx, value=val)

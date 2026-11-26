@@ -31,11 +31,11 @@
       </div>
       <div class="bg-white border border-emerald-200 rounded-xl p-4 shadow-sm">
         <div class="text-xs text-slate-500">Ombor Qoldig'i (Aktiv)</div>
-        <div class="text-xl font-bold font-mono-num text-emerald-700 mt-1">{{ total_ending_asset|floatformat:2 }}</div>
+        <div class="text-xl font-bold font-mono-num text-emerald-700 mt-1">{{ total_ending_asset|floatformat:"0g" }}</div>
       </div>
       <div class="bg-white border border-red-200 rounded-xl p-4 shadow-sm">
         <div class="text-xs text-slate-500">Kirimsiz Sotuv Summasi</div>
-        <div class="text-xl font-bold font-mono-num text-red-700 mt-1">{{ batch.total_shortage_amount|floatformat:2 }}</div>
+        <div class="text-xl font-bold font-mono-num text-red-700 mt-1">{{ batch.total_shortage_amount|floatformat:"0g" }}</div>
       </div>
       <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
         <div class="text-xs text-slate-500">Markirovka Kamchiliklari</div>
@@ -89,7 +89,7 @@
             @click="setTab('svod')"
             :class="activeTab === 'svod' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'"
             class="px-3 py-1.5 rounded-lg text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600">
-            Svod Jadval ({{ batch.total_items_count }})
+            Svod Jadval ({{ items_count }})
           </button>
           <button type="button" id="tab-shortage" role="tab" aria-controls="panel-shortage"
             :aria-selected="activeTab === 'shortage' ? 'true' : 'false'"
@@ -113,7 +113,7 @@
             @click="setTab('discrepancy')"
             :class="activeTab === 'discrepancy' ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'"
             class="px-3 py-1.5 rounded-lg text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-600">
-            Markirovka Kamchiliklari ({{ batch.marking_discrepancy_count }})
+            Markirovka Kamchiliklari ({{ discrepancy_count }})
           </button>
         </div>
 
@@ -150,13 +150,13 @@
               <tr class="hover:bg-slate-50 {% if item.farq_ortiqcha_soni > 0 %}bg-red-50/40{% endif %}">
                 <td class="px-3 py-2 text-slate-500 font-mono-num">{{ item.tovar_id|default:"-" }}</td>
                 <td class="px-3 py-2 font-medium text-slate-900">{{ item.tovar_nomi_kirill }}</td>
-                <td class="px-3 py-2 text-right font-mono-num">{{ item.ortacha_narx|floatformat:2 }}</td>
-                <td class="px-3 py-2 text-right font-mono-num">{{ item.bosh_qoldiq_soni|floatformat:3 }}</td>
-                <td class="px-3 py-2 text-right font-mono-num">{{ item.kirim_soni|floatformat:3 }}</td>
-                <td class="px-3 py-2 text-right font-mono-num">{{ item.chiqim_soni|floatformat:3 }}</td>
-                <td class="px-3 py-2 text-right font-mono-num">{{ item.farq_qoldiq_soni|floatformat:3 }}</td>
-                <td class="px-3 py-2 text-right font-mono-num font-semibold text-red-700">{{ item.farq_ortiqcha_soni|floatformat:3 }}</td>
-                <td class="px-3 py-2 text-right font-mono-num font-semibold text-red-700">{{ item.farq_ortiqcha_summa|floatformat:2 }}</td>
+                <td class="px-3 py-2 text-right font-mono-num">{{ item.ortacha_narx|floatformat:"0g" }}</td>
+                <td class="px-3 py-2 text-right font-mono-num">{{ item.bosh_qoldiq_soni|floatformat:"0g" }}</td>
+                <td class="px-3 py-2 text-right font-mono-num">{{ item.kirim_soni|floatformat:"0g" }}</td>
+                <td class="px-3 py-2 text-right font-mono-num">{{ item.chiqim_soni|floatformat:"0g" }}</td>
+                <td class="px-3 py-2 text-right font-mono-num">{{ item.farq_qoldiq_soni|floatformat:"0g" }}</td>
+                <td class="px-3 py-2 text-right font-mono-num font-semibold text-red-700">{{ item.farq_ortiqcha_soni|floatformat:"0g" }}</td>
+                <td class="px-3 py-2 text-right font-mono-num font-semibold text-red-700">{{ item.farq_ortiqcha_summa|floatformat:"0g" }}</td>
               </tr>
             {% empty %}
               <tr><td colspan="9" class="px-3 py-6 text-center text-slate-400">Ma'lumot topilmadi.</td></tr>
@@ -196,10 +196,10 @@
               <tr class="hover:bg-red-50/40">
                 <td class="px-3 py-2 text-slate-500 font-mono-num">{{ item.tovar_id|default:"-" }}</td>
                 <td class="px-3 py-2 font-medium">{{ item.tovar_nomi_kirill }}</td>
-                <td class="px-3 py-2 text-right font-mono-num">{{ item.mavjud_soni|floatformat:3 }}</td>
-                <td class="px-3 py-2 text-right font-mono-num">{{ item.chiqim_soni|floatformat:3 }}</td>
-                <td class="px-3 py-2 text-right font-mono-num font-bold text-red-700">{{ item.farq_ortiqcha_soni|floatformat:3 }}</td>
-                <td class="px-3 py-2 text-right font-mono-num font-bold text-red-700">{{ item.farq_ortiqcha_summa|floatformat:2 }}</td>
+                <td class="px-3 py-2 text-right font-mono-num">{{ item.mavjud_soni|floatformat:"0g" }}</td>
+                <td class="px-3 py-2 text-right font-mono-num">{{ item.chiqim_soni|floatformat:"0g" }}</td>
+                <td class="px-3 py-2 text-right font-mono-num font-bold text-red-700">{{ item.farq_ortiqcha_soni|floatformat:"0g" }}</td>
+                <td class="px-3 py-2 text-right font-mono-num font-bold text-red-700">{{ item.farq_ortiqcha_summa|floatformat:"0g" }}</td>
               </tr>
             {% empty %}
               <tr><td colspan="6" class="px-3 py-6 text-center text-slate-400">Kirimsiz sotuvlar aniqlanmadi.</td></tr>
@@ -304,8 +304,8 @@
               <tr class="bg-red-50/50">
                 <td class="px-3 py-2 text-slate-500 font-mono-num">{{ d.tovar_id|default:"-" }}</td>
                 <td class="px-3 py-2 font-medium">{{ d.tovar_nomi_kirill }}</td>
-                <td class="px-3 py-2 text-right font-mono-num font-semibold">{{ d.kirim_farqi }}</td>
-                <td class="px-3 py-2 text-right font-mono-num font-semibold">{{ d.chiqim_farqi }}</td>
+                <td class="px-3 py-2 text-right font-mono-num font-semibold">{{ d.kirim_farqi|floatformat:"0g" }}</td>
+                <td class="px-3 py-2 text-right font-mono-num font-semibold">{{ d.chiqim_farqi|floatformat:"0g" }}</td>
                 <td class="px-3 py-2 text-red-700 max-w-sm">
                   {% if d.noma_lum_chiqim_markirovkalar %}
                     <details x-data="{ copied: false }">
@@ -327,7 +327,7 @@
                     <span class="text-slate-400">-</span>
                   {% endif %}
                 </td>
-                <td class="px-3 py-2 text-red-800">{{ d.kamchilik_sababi }}</td>
+                <td class="px-3 py-2 text-red-800">{{ d.kamchilik_sababi|int_numbers }}</td>
               </tr>
             {% empty %}
               <tr><td colspan="6" class="px-3 py-6 text-center text-slate-400">Markirovka kamchiliklari aniqlanmadi.</td></tr>

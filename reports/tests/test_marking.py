@@ -48,5 +48,6 @@ def test_audit_marking_record_discrepancies_and_ghost_marking():
     assert rec["kirim_farqi"] == Decimal("-1")
     assert rec["chiqim_farqi"] == Decimal("0")
     assert rec["noma_lum_chiqim_markirovkalar"] == ["GHOST99"]
-    assert "Kirim tafovuti" in rec["kamchilik_sababi"]
-    assert "Ghost Marking" in rec["kamchilik_sababi"]
+    assert "Kirimda 3 ta tovar bor, lekin 2 ta markirovka kiritilgan (1 ta yetishmaydi)" in rec["kamchilik_sababi"]
+    assert "Kirimda yo'q bo'lgan 1 ta markirovka kodi sotilib ketgan" in rec["kamchilik_sababi"]
+    assert ".000" not in rec["kamchilik_sababi"]

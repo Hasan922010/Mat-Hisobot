@@ -66,6 +66,12 @@ def test_end_to_end_upload_task_detail_and_excel_export(auth_client, settings, t
     assert detail_resp.status_code == 200
     assert "Шакар оқ" in detail_resp.content.decode("utf-8")
 
+    # Qidiruvda barcha tab sonlari filtrlangan natijaga mos kelishi kerak
+    filtered_resp = client.get(reverse("reports:batch_detail", args=[batch.pk]) + "?q=T2")
+    filtered_html = filtered_resp.content.decode("utf-8")
+    assert "Svod Jadval (1)" in filtered_html
+    assert "Markirovka Kamchiliklari (0)" in filtered_html
+
     progress_resp = client.get(reverse("reports:batch_progress", args=[batch.pk]))
     assert progress_resp.status_code == 200
     assert progress_resp["HX-Refresh"] == "true"
@@ -329,22 +335,71 @@ def test_security_xss_script_breakout_and_idor_blocked(auth_client, client, djan
     body = prev_resp.content.decode("utf-8")
     assert "</script><script>alert(1)</script>" not in body
 
-    # 2. IDOR: boshqa foydalanuvchi birovning hisobotini ko'ra olmasligi kerak
+    # 2. IDOR: boshqa foydalanuvchi birovning hisobotini ko'ra olmasligi (va dashboard filtrida ham chiqmasligi) kerak
     other_user = django_user_model.objects.create_user(username="other", password="secret")
     comp = Company.objects.create(name="Private MCHJ", stir="111222333")
-    batch = ReportBatch.objects.create(company=comp, created_by=other_user, year=2026)
+    batch = ReportBatch.objects.create(company=comp, created_by=other_user, year=2026, status="COMPLETED")
 
     assert auth_client.get(reverse("reports:batch_detail", args=[batch.pk])).status_code == 404
     assert auth_client.get(reverse("reports:export_excel", args=[batch.pk])).status_code == 404
     assert auth_client.post(reverse("reports:delete_batch", args=[batch.pk])).status_code == 404
+    dash_html = auth_client.get(reverse("reports:dashboard") + "?stir=111222333").content.decode("utf-8")
+    assert "Private MCHJ" not in dash_html
+    assert "Davrlararo Solishtirish" not in dash_html
+
+    # 3. Boshqa foydalanuvchi bir xil STIR yuborganda mavjud korxona nomini o'zgartira olmasligi +
+    #    qo'lda tanlangan Soni ustuni fayldagi "Kirim" ustunidan ustun bo'lishi kerak
+    k_override = SimpleUploadedFile(
+        "override_k.csv",
+        b"MXIK,Tovar,Kirim,HaqiqiySoni,Summa\nOV1,Un,999,10,100000\n",
+        content_type="text/csv",
+    )
+    c_override = SimpleUploadedFile(
+        "override_c.csv",
+        b"MXIK,Tovar,Chiqim,HaqiqiySoni,Summa\nOV1,Un,888,4,60000\n",
+        content_type="text/csv",
+    )
+    auth_client.post(
+        reverse("reports:dashboard"),
+        {
+            "company_name": "Hijacked Name",
+            "stir": "111222333",
+            "year": "2026",
+            "period_label": "Yillik",
+            "kirim_file": k_override,
+            "chiqim_file": c_override,
+            "kirim_col_mxik": "MXIK",
+            "kirim_col_tovar": "Tovar",
+            "kirim_col_soni": "HaqiqiySoni",
+            "kirim_col_summa": "Summa",
+            "chiqim_col_mxik": "MXIK",
+            "chiqim_col_tovar": "Tovar",
+            "chiqim_col_soni": "HaqiqiySoni",
+            "chiqim_col_summa": "Summa",
+        },
+    )
+    comp.refresh_from_db()
+    assert comp.name == "Private MCHJ"
+    my_batch = ReportBatch.objects.filter(created_by__username="auditor").get()
+    process_report_batch(my_batch.id)
+    ov_item = my_batch.items.get()
+    assert ov_item.kirim_soni == Decimal("10.000")
+    assert ov_item.chiqim_soni == Decimal("4.000")
+    assert ov_item.farq_qoldiq_soni == Decimal("6.000")
 
 
 @pytest.mark.django_db
-def test_fractional_mavjud_and_delete_batch(auth_client, django_user_model):
+def test_fractional_mavjud_and_delete_batch(auth_client, django_user_model, settings, tmp_path):
+    settings.MEDIA_ROOT = tmp_path
     user = django_user_model.objects.get(username="auditor")
     comp = Company.objects.create(name="Kasr MCHJ", stir="222333444")
-    batch = ReportBatch.objects.create(company=comp, created_by=user, year=2026, status="COMPLETED")
-    MaterialLineItem.objects.create(
+    saved_file = SimpleUploadedFile("to_delete.csv", b"MXIK,Tovar,Soni\n1,A,1\n", content_type="text/csv")
+    batch = ReportBatch.objects.create(
+        company=comp, created_by=user, year=2026, status="COMPLETED", uploaded_file=saved_file
+    )
+    saved_path = batch.uploaded_file.path
+    assert tmp_path.joinpath(batch.uploaded_file.name).exists()
+    item = MaterialLineItem.objects.create(
         batch=batch,
         tovar_id="M1",
         tovar_nomi_kirill="Шоколад",
@@ -360,11 +415,13 @@ def test_fractional_mavjud_and_delete_batch(auth_client, django_user_model):
         farq_ortiqcha_soni=Decimal("2.250"),
         farq_ortiqcha_summa=Decimal("225.00"),
     )
+    assert item.mavjud_soni == Decimal("12.750")
 
     detail_resp = auth_client.get(reverse("reports:batch_detail", args=[batch.pk]))
     assert detail_resp.status_code == 200
     body = detail_resp.content.decode("utf-8")
-    assert "12,750" in body or "12.750" in body
+    # UI da barcha raqamlar butun (int) ko'rinishida chiqadi: 12.750 -> 13
+    assert ">13<" in body
     assert 'role="tab"' in body and 'role="tabpanel"' in body
     assert "cdn.tailwindcss.com" not in body and "unpkg.com" not in body
 
@@ -373,6 +430,7 @@ def test_fractional_mavjud_and_delete_batch(auth_client, django_user_model):
     assert auth_client.get(del_url).status_code == 405
     assert auth_client.post(del_url).status_code == 302
     assert not ReportBatch.objects.filter(pk=batch.pk).exists()
+    assert not tmp_path.joinpath(saved_path).exists()
 
 
 @pytest.mark.django_db
