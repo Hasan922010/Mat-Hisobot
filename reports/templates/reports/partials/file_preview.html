@@ -34,6 +34,25 @@
           if (raw === '-') return '-';
           return Math.round(this.parseNum(raw)).toLocaleString('ru-RU');
         },
+        mxikVal(row, colName) {
+          const raw = this.cellVal(row, colName);
+          if (raw === '-') return '-';
+          const text = String(raw).trim();
+          const fMatch = text.match(/^(\d+)\.0+$/);
+          if (fMatch) return fMatch[1];
+          if (/^\d+$/.test(text)) return text;
+          const start17 = text.match(/^[$#№]?(\d{17})(?!\d)/);
+          if (start17) return start17[1];
+          const nums = Array.from(
+            text.matchAll(/(?:^|[^A-Za-z\u0400-\u04FF\d])(\d{6,})(?![A-Za-z\u0400-\u04FF\d])/g),
+            (m) => m[1]
+          );
+          if (nums.length) {
+            return nums.find((n) => n.length === 17) || nums.reduce((a, b) => (b.length > a.length ? b : a));
+          }
+          const lead = text.match(/^[$#№]?(\d+)(?:\s+[-–—:/|]\s+\S|\s*[-–—:/|,(\s]+\s*[^\d\s])/);
+          return lead ? lead[1] : text;
+        },
         calcPrice(row) {
           const sIdx = this.headers.indexOf(this.soni);
           const sumIdx = this.headers.indexOf(this.summa);
@@ -142,7 +161,7 @@
         <tbody class="divide-y divide-slate-100">
           <template x-for="(row, rIdx) in rows" :key="rIdx">
             <tr class="hover:bg-slate-50">
-              <td class="px-2.5 py-1 whitespace-nowrap font-mono-num text-slate-700" x-text="cellVal(row, mxik)"></td>
+              <td class="px-2.5 py-1 whitespace-nowrap font-mono-num text-slate-700" :title="cellVal(row, mxik)" x-text="mxikVal(row, mxik)"></td>
               <td class="px-2.5 py-1 max-w-[160px] truncate font-mono-num text-slate-600" :title="cellVal(row, markirovka)" x-text="cellVal(row, markirovka)"></td>
               <td class="px-2.5 py-1 font-medium text-slate-900 max-w-xs truncate" :title="cellVal(row, tovar)" x-text="cellVal(row, tovar)"></td>
               <td class="px-2.5 py-1 whitespace-nowrap text-right font-mono-num text-slate-700" x-text="intVal(row, soni)"></td>

@@ -31,11 +31,16 @@ cleanup() {
   echo ""
   echo ">>> To'xtatilmoqda..."
   if [ -n "$QCLUSTER_PID" ] && kill -0 "$QCLUSTER_PID" 2>/dev/null; then
+    pkill -P "$QCLUSTER_PID" 2>/dev/null || true
     kill "$QCLUSTER_PID" 2>/dev/null || true
     wait "$QCLUSTER_PID" 2>/dev/null || true
   fi
+  pkill -f "manage.py qcluster" 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
+
+# Eski qolib ketgan qcluster worker'larni tozalash (eski kod bilan ishlashining oldini oladi)
+pkill -f "manage.py qcluster" 2>/dev/null || true
 
 echo ">>> Django-Q2 worker (qcluster) fonda ishga tushirilmoqda..."
 uv run python manage.py qcluster &

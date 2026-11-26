@@ -8,6 +8,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 
 from reports.services.audit_engine import (
     clean_decimal,
+    extract_mxik_code,
     map_headers,
     process_inventory_file,
     process_separate_files,
@@ -273,3 +274,98 @@ def test_multidot_numbers_round_half_up_and_xlrd_available(tmp_path):
     assert by_name["Маҳсулот А"]["farq_ortiqcha_summa"] == Decimal("2401.00")
     # 0.5 * 10.01 = 5.005 -> ROUND_HALF_UP bilan 5.01 (bank yaxlitlashida 5.00 bo'lib qolardi)
     assert by_name["Маҳсулот Б"]["farq_ortiqcha_summa"] == Decimal("5.01")
+
+
+def test_extract_mxik_digits_from_mixed_name_and_group_files(tmp_path):
+    assert extract_mxik_code("02710005002000000 - Полусинтетическое моторное масло 10W40") == "02710005002000000"
+    assert extract_mxik_code("02208001001924001 - ABSIENT GOLD, Крепость 37,5%, 0,5 л") == "02208001001924001"
+    assert extract_mxik_code("Шиша идишлар 500г (07013002003000000)") == "07013002003000000"
+    assert extract_mxik_code("$04016001005000000") == "04016001005000000"
+    assert extract_mxik_code("10701001.0") == "10701001"
+    assert extract_mxik_code("10701 - Shakar 1kg") == "10701"
+    # Oddiy harfli-raqamli SKU lar buzilmasligi kerak
+    assert extract_mxik_code("SKU-123") == "SKU-123"
+    assert extract_mxik_code("T1") == "T1"
+
+    # Didox sarlavhasi bilan Kirim (MXIK + nom) va Chiqim (sof MXIK) bitta tovarga birlashishi kerak
+    kirim_path = tmp_path / "didox_kirim.csv"
+    chiqim_path = tmp_path / "didox_chiqim.csv"
+    pd.DataFrame([
+        {
+            "ID": "698b1ac2d54997bffcd8f724",
+            "Идентификационный код и название по Единому электронному национальному каталогу товаров (услуг)": "02710005002000000 - Полусинтетическое моторное масло",
+            "Примечание к товару (работе, услуге)": "Borax 10W40",
+            "Количество": "10",
+            "Стоимость поставки с учётом НДС": "1000000",
+        }
+    ]).to_csv(kirim_path, index=False)
+    pd.DataFrame([
+        {
+            "Маҳсулот коди": "02710005002000000",
+            "Маҳсулот номи": "Borax moy",
+            "Количество": "4",
+            "Стоимость поставки с учётом НДС": "500000",
+        }
+    ]).to_csv(chiqim_path, index=False)
+
+    res = process_separate_files(kirim_path, chiqim_path)
+    assert len(res["items"]) == 1
+    item = res["items"][0]
+    assert item["tovar_id"] == "02710005002000000"
+    assert item["kirim_soni"] == Decimal("10.000")
+    assert item["chiqim_soni"] == Decimal("4.000")
+    assert item["farq_qoldiq_soni"] == Decimal("6.000")
+
+
+def test_online_nkm_uzbek_cyrillic_headers_and_multiline_header_normalization(tmp_path):
+    xlsx_path = tmp_path / "nkm_chiqim.xlsx"
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append([
+        "Маҳсулот коди",
+        "Маҳсулот номи",
+        "Миқдори",
+        "Нархи",
+        "Чегирма суммаси",
+        "Дисконт суммаси",
+        "Жами ҚҚС",
+        "Маркировка \nкоди",
+    ])
+    ws.append(["02710005002000000", "Матор мойи Боракс", 2, 46000, 0, 0, 5000000, "DM1;DM2"])
+    wb.save(xlsx_path)
+
+    prev = read_file_preview(xlsx_path, role="chiqim")
+    assert "Маркировка коди" in prev["headers"]
+    mapped = map_headers(prev["headers"])
+    assert mapped["tovar_id"] == "Маҳсулот коди"
+    assert mapped["tovar_nomi"] == "Маҳсулот номи"
+    assert mapped["quantity"] == "Миқдори"
+    assert mapped["summa"] == "Нархи"
+    assert mapped["markirovka"] == "Маркировка коди"
+
+    # Brauzer \r\n yuborganda ham explicit_map to'g'ri ulanishi kerak
+    kirim_path = tmp_path / "nkm_kirim.csv"
+    pd.DataFrame([
+        {
+            "Идентификационный код и название по Единому электронному национальному каталогу товаров (услуг)": "02710005002000000 - Полусинтетическое моторное масло",
+            "Примечание к товару (работе, услуге)": "Матор мойи Боракс",
+            "Количество": "10",
+            "Стоимость поставки с учётом НДС": "230000",
+            "Маркировка": "DM1;DM2",
+        }
+    ]).to_csv(kirim_path, index=False)
+
+    res = process_separate_files(
+        kirim_path,
+        xlsx_path,
+        chiqim_col_map={"chiqim_markirovka": "Маркировка \r\nкоди"},
+    )
+    assert len(res["items"]) == 1
+    it = res["items"][0]
+    assert it["tovar_id"] == "02710005002000000"
+    assert it["kirim_soni"] == Decimal("10.000")
+    assert it["chiqim_soni"] == Decimal("2.000")
+    assert it["farq_qoldiq_soni"] == Decimal("8.000")
+    assert it["ortacha_narx"] == Decimal("23000.00")
+    assert len(res["marking_records"]) == 1
+    assert res["marking_records"][0]["chiqim_markirovka_soni"] == 2
