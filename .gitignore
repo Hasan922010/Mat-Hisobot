@@ -228,3 +228,12 @@ media/
 staticfiles/
 *.xlsx
 *.xls
+
+/node_modules/
+/public/app.js
+!/netlify/lib/
+/netlify/lib/audit-packages/
+
+# Local Netlify folder
+/.netlify/*
+!/.netlify/features/

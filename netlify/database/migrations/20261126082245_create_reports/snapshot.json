@@ -1,0 +1,311 @@
+{
+  "version": "8",
+  "dialect": "postgres",
+  "id": "4d5dbe33-1171-4d5c-b234-be7f7276ee91",
+  "prevIds": [
+    "00000000-0000-0000-0000-000000000000"
+  ],
+  "ddl": [
+    {
+      "isRlsEnabled": false,
+      "name": "report_batch",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "report_row",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "gen_random_uuid()",
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "report_batch"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "owner",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "report_batch"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "company",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "report_batch"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "stir",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "report_batch"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "year",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "report_batch"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "period",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "report_batch"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "files",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "report_batch"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "options",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "report_batch"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'DRAFT'",
+      "generated": null,
+      "identity": null,
+      "name": "status",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "report_batch"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "summary",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "report_batch"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "report_batch"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "started_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "report_batch"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "batch_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "report_row"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "row_group",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "report_row"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "position",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "report_row"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "search_text",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "report_row"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "data",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "report_row"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "owner",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "created_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "report_batch_owner_created_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "report_batch"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "batch_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "report_batch",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "report_row_batch_id_report_batch_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "report_row"
+    },
+    {
+      "columns": [
+        "batch_id",
+        "row_group",
+        "position"
+      ],
+      "nameExplicit": false,
+      "name": "report_row_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "report_row"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "report_batch_pkey",
+      "schema": "public",
+      "table": "report_batch",
+      "entityType": "pks"
+    }
+  ],
+  "renames": []
+}
