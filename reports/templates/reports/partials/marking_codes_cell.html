@@ -1,0 +1,32 @@
+{% if codes %}
+  <details class="group text-left">
+    <summary class="cursor-pointer font-semibold hover:underline select-none {% if variant == 'danger' %}text-[#9c2d25]{% else %}text-[#234c38]{% endif %}">
+      {{ summary_label }}
+    </summary>
+    <div class="mt-2 p-2.5 rounded-lg space-y-2 border {% if variant == 'danger' %}bg-white border-[#e7c4be]{% else %}bg-[#f8faf7] border-[#dce2d9]{% endif %}">
+      <div class="flex items-center justify-between gap-2 pb-1.5 border-b {% if variant == 'danger' %}border-[#e7c4be]{% else %}border-[#dce2d9]{% endif %}">
+        <span class="text-[11px] {% if variant == 'danger' %}text-[#792119]{% else %}text-[#5e6a61]{% endif %}">Alohida nusxalash</span>
+        <button type="button"
+          @click="copyAll($el, '{{ prefix }}-all-{{ rec_id }}')"
+          class="text-[11px] px-2 py-0.5 rounded border font-semibold whitespace-nowrap {% if variant == 'danger' %}bg-[#fbe8e5] border-[#e7c4be] hover:bg-[#f6d5cf] text-[#792119]{% else %}bg-white border-[#dce2d9] hover:bg-[#edf3ed] text-[#234c38]{% endif %}">
+          <span x-text="copiedKey === '{{ prefix }}-all-{{ rec_id }}' ? '✓ Barchasi nusxalandi' : 'Barchasini nusxalash'"></span>
+        </button>
+      </div>
+      <ul class="divide-y max-h-44 overflow-y-auto pr-1 {% if variant == 'danger' %}divide-[#f2d6d1]{% else %}divide-[#dce2d9]{% endif %}">
+        {% for code in codes %}
+          <li class="py-1.5 flex items-center justify-between gap-2">
+            <span data-marking-code class="font-mono-num text-[11px] break-all select-all {% if variant == 'danger' %}text-[#792119]{% else %}text-[#17241d]{% endif %}">{{ code }}</span>
+            <button type="button"
+              @click="copyText($el.previousElementSibling.textContent, '{{ prefix }}-{{ rec_id }}-{{ forloop.counter0 }}')"
+              aria-label="Markirovka kodini nusxalash"
+              class="shrink-0 text-[11px] px-2 py-0.5 rounded border font-semibold {% if variant == 'danger' %}bg-[#fbe8e5] border-[#e7c4be] hover:bg-[#f6d5cf] text-[#792119]{% else %}bg-white border-[#dce2d9] hover:bg-[#edf3ed] text-[#234c38]{% endif %}">
+              <span x-text="copiedKey === '{{ prefix }}-{{ rec_id }}-{{ forloop.counter0 }}' ? '✓' : 'Nusxa'"></span>
+            </button>
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </details>
+{% else %}
+  <span class="text-[#5e6a61]">{{ empty_label|default:"-" }}</span>
+{% endif %}

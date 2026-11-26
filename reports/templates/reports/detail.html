@@ -278,46 +278,21 @@
           </thead>
           <tbody class="divide-y divide-[#dce2d9]">
             {% for m in marking_page %}
-              <tr class="odd:bg-white even:bg-[#f8faf7] hover:bg-[#edf3ec]/60">
+              <tr class="odd:bg-white even:bg-[#f8faf7] hover:bg-[#edf3ec]/60 align-top">
                 <td class="px-3 py-2.5 text-[#5e6a61] font-mono-num">{{ m.tovar_id|default:"-" }}</td>
                 <td class="px-3 py-2.5 font-semibold text-[#17241d]">{{ m.tovar_nomi_kirill }}</td>
-                <td class="px-3 py-2.5 text-right font-mono-num">{{ m.bosh_markirovka_soni }}</td>
-                <td class="px-3 py-2.5 text-right font-mono-num">{{ m.kirim_markirovka_soni }}</td>
-                <td class="px-3 py-2.5 text-right font-mono-num">{{ m.chiqim_markirovka_soni }}</td>
+                <td class="px-3 py-2.5 font-mono-num max-w-xs">
+                  {% include "reports/partials/marking_codes_cell.html" with codes=m.bosh_markirovkalar summary_label=m.bosh_markirovka_soni|stringformat:"s"|add:" ta kod" empty_label="0" prefix="b" rec_id=m.pk %}
+                </td>
+                <td class="px-3 py-2.5 font-mono-num max-w-xs">
+                  {% include "reports/partials/marking_codes_cell.html" with codes=m.kirim_markirovkalar summary_label=m.kirim_markirovka_soni|stringformat:"s"|add:" ta kod" empty_label="0" prefix="k" rec_id=m.pk %}
+                </td>
+                <td class="px-3 py-2.5 font-mono-num max-w-xs">
+                  {% include "reports/partials/marking_codes_cell.html" with codes=m.chiqim_markirovkalar summary_label=m.chiqim_markirovka_soni|stringformat:"s"|add:" ta kod" empty_label="0" prefix="c" rec_id=m.pk %}
+                </td>
                 <td class="px-3 py-2.5 text-right font-mono-num font-bold text-[#234c38]">{{ m.qoldiq_markirovka_soni }}</td>
                 <td class="px-3 py-2.5 text-[#5e6a61] max-w-md">
-                  {% if m.qoldiq_markirovkalar %}
-                    <details class="group">
-                      <summary class="cursor-pointer text-[#234c38] font-semibold hover:underline select-none">
-                        {{ m.qoldiq_markirovkalar|length }} ta kodni ko'rish
-                      </summary>
-                      <div class="mt-2 p-2.5 bg-[#f8faf7] border border-[#dce2d9] rounded-lg space-y-2">
-                        <div class="flex items-center justify-between gap-2 pb-1.5 border-b border-[#dce2d9]">
-                          <span class="text-[11px] text-[#5e6a61]">Har bir kodni alohida nusxalash</span>
-                          <button type="button"
-                            @click="copyAll($el, 'q-all-{{ m.pk }}')"
-                            class="text-[11px] px-2 py-0.5 rounded bg-white border border-[#dce2d9] hover:bg-[#edf3ed] text-[#234c38] font-semibold whitespace-nowrap">
-                            <span x-text="copiedKey === 'q-all-{{ m.pk }}' ? '✓ Barchasi nusxalandi' : 'Barchasini nusxalash'"></span>
-                          </button>
-                        </div>
-                        <ul class="divide-y divide-[#dce2d9] max-h-44 overflow-y-auto pr-1">
-                          {% for code in m.qoldiq_markirovkalar %}
-                            <li class="py-1.5 flex items-center justify-between gap-2">
-                              <span data-marking-code class="font-mono-num text-[11px] break-all text-[#17241d] select-all">{{ code }}</span>
-                              <button type="button"
-                                @click="copyText($el.previousElementSibling.textContent, 'q-{{ m.pk }}-{{ forloop.counter0 }}')"
-                                aria-label="Markirovka kodini nusxalash"
-                                class="shrink-0 text-[11px] px-2 py-0.5 rounded bg-white border border-[#dce2d9] hover:bg-[#edf3ed] text-[#234c38] font-semibold">
-                                <span x-text="copiedKey === 'q-{{ m.pk }}-{{ forloop.counter0 }}' ? '✓' : 'Nusxa'"></span>
-                              </button>
-                            </li>
-                          {% endfor %}
-                        </ul>
-                      </div>
-                    </details>
-                  {% else %}
-                    <span class="text-[#5e6a61]">-</span>
-                  {% endif %}
+                  {% include "reports/partials/marking_codes_cell.html" with codes=m.qoldiq_markirovkalar summary_label=m.qoldiq_markirovkalar|length|stringformat:"s"|add:" ta kodni ko'rish" empty_label="-" prefix="q" rec_id=m.pk %}
                 </td>
               </tr>
             {% empty %}
@@ -360,39 +335,8 @@
                 <td class="px-3 py-2.5 font-semibold text-[#17241d]">{{ d.tovar_nomi_kirill }}</td>
                 <td class="px-3 py-2.5 text-right font-mono-num font-bold">{{ d.kirim_farqi|floatformat:"0g" }}</td>
                 <td class="px-3 py-2.5 text-right font-mono-num font-bold">{{ d.chiqim_farqi|floatformat:"0g" }}</td>
-                <td class="px-3 py-2.5 text-[#9c2d25] max-w-md">
-                  {% if d.noma_lum_chiqim_markirovkalar %}
-                    <details>
-                      <summary class="cursor-pointer font-semibold hover:underline select-none">
-                        {{ d.noma_lum_chiqim_markirovkalar|length }} ta noma'lum kod
-                      </summary>
-                      <div class="mt-2 p-2.5 bg-white border border-[#e7c4be] rounded-lg space-y-2">
-                        <div class="flex items-center justify-between gap-2 pb-1.5 border-b border-[#e7c4be]">
-                          <span class="text-[11px] text-[#792119]">Har bir kodni alohida nusxalash</span>
-                          <button type="button"
-                            @click="copyAll($el, 'd-all-{{ d.pk }}')"
-                            class="text-[11px] px-2 py-0.5 rounded bg-[#fbe8e5] border border-[#e7c4be] hover:bg-[#f6d5cf] text-[#792119] font-semibold whitespace-nowrap">
-                            <span x-text="copiedKey === 'd-all-{{ d.pk }}' ? '✓ Barchasi nusxalandi' : 'Barchasini nusxalash'"></span>
-                          </button>
-                        </div>
-                        <ul class="divide-y divide-[#f2d6d1] max-h-44 overflow-y-auto pr-1">
-                          {% for code in d.noma_lum_chiqim_markirovkalar %}
-                            <li class="py-1.5 flex items-center justify-between gap-2">
-                              <span data-marking-code class="font-mono-num text-[11px] break-all text-[#792119] select-all">{{ code }}</span>
-                              <button type="button"
-                                @click="copyText($el.previousElementSibling.textContent, 'd-{{ d.pk }}-{{ forloop.counter0 }}')"
-                                aria-label="Noma'lum markirovka kodini nusxalash"
-                                class="shrink-0 text-[11px] px-2 py-0.5 rounded bg-[#fbe8e5] border border-[#e7c4be] hover:bg-[#f6d5cf] text-[#792119] font-semibold">
-                                <span x-text="copiedKey === 'd-{{ d.pk }}-{{ forloop.counter0 }}' ? '✓' : 'Nusxa'"></span>
-                              </button>
-                            </li>
-                          {% endfor %}
-                        </ul>
-                      </div>
-                    </details>
-                  {% else %}
-                    <span class="text-[#5e6a61]">-</span>
-                  {% endif %}
+                <td class="px-3 py-2.5 text-[#9c2d25] max-w-md align-top">
+                  {% include "reports/partials/marking_codes_cell.html" with codes=d.noma_lum_chiqim_markirovkalar summary_label=d.noma_lum_chiqim_markirovkalar|length|stringformat:"s"|add:" ta noma'lum kod" empty_label="-" prefix="d" rec_id=d.pk variant="danger" %}
                 </td>
                 <td class="px-3 py-2.5 text-[#792119]">{{ d.kamchilik_sababi|int_numbers }}</td>
               </tr>
