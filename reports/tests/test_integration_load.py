@@ -480,14 +480,16 @@ def test_password_reset_flow(client, django_user_model, mailoutbox):
     resp = client.post(reverse("password_reset"), {"email": "reset@example.com"})
     assert resp.status_code == 302
     assert len(mailoutbox) == 1
+    assert "Sizning loginingiz: reset_user" in mailoutbox[0].body
 
     match = re.search(r"https?://[^/\s]+(/accounts/reset/[^\s]+)", mailoutbox[0].body)
     assert match, mailoutbox[0].body
     confirm_url = match.group(1)
 
-    # Django confirm view token'ni sessiyaga o'tkazib set-password URL ga redirect qiladi
+    # Django confirm view token'ni sessiyaga o'tkazib set-password URL ga redirect qiladi va loginni ko'rsatadi
     get_resp = client.get(confirm_url, follow=True)
     assert get_resp.status_code == 200
+    assert "reset_user" in get_resp.content.decode("utf-8")
     set_url = get_resp.redirect_chain[-1][0]
 
     post_resp = client.post(
@@ -501,3 +503,19 @@ def test_password_reset_flow(client, django_user_model, mailoutbox):
     user.refresh_from_db()
     assert user.check_password("NewStrongPass2026!")
     assert not user.check_password("OldPassword123!")
+
+    # Yangi parol bilan ham login, ham ro'yxatdan o'tgan email orqali kirish ishlashi kerak
+    assert client.login(username="reset_user", password="NewStrongPass2026!")
+    client.logout()
+    assert client.login(username="RESET@example.com", password="NewStrongPass2026!")
+
+    # Admin formasi takroriy email biriktirishni bloklashi kerak
+    from reports.admin import UniqueEmailUserChangeForm
+
+    second = django_user_model.objects.create_user(username="second_user", password="OldPassword123!")
+    bad_form = UniqueEmailUserChangeForm(
+        data={"username": "second_user", "email": "RESET@example.com", "date_joined": second.date_joined},
+        instance=second,
+    )
+    assert not bad_form.is_valid()
+    assert "email" in bad_form.errors

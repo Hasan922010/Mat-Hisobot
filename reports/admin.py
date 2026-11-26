@@ -1,5 +1,30 @@
+from django import forms
 from django.contrib import admin
+from django.contrib.auth import admin as auth_admin  # noqa: F401
+from django.contrib.auth import get_user_model
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.contrib.auth.forms import UserChangeForm
+
 from .models import Company, MarkingAuditRecord, MaterialLineItem, ReportBatch
+
+User = get_user_model()
+
+
+class UniqueEmailUserChangeForm(UserChangeForm):
+    def clean_email(self):
+        email = (self.cleaned_data.get("email") or "").strip()
+        if email and User.objects.filter(email__iexact=email).exclude(pk=self.instance.pk).exists():
+            raise forms.ValidationError("Bu elektron pochta boshqa foydalanuvchiga biriktirilgan.")
+        return email
+
+
+if admin.site.is_registered(User):
+    admin.site.unregister(User)
+
+
+@admin.register(User)
+class UniqueEmailUserAdmin(BaseUserAdmin):
+    form = UniqueEmailUserChangeForm
 
 
 @admin.register(Company)
