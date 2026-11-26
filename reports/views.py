@@ -42,7 +42,7 @@ def _extract_col_map(post_data, prefix: str) -> dict[str, str]:
         ("summa", f"{prefix}_col_summa"),
     )
     return {
-        canonical: post_data.get(form_key, "").strip()
+        canonical: " ".join(post_data.get(form_key, "").split())
         for canonical, form_key in field_pairs
         if post_data.get(form_key, "").strip()
     }

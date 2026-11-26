@@ -18,11 +18,31 @@ from .transliterator import latin_to_cyrillic
 CHUNK_SIZE = 50_000
 
 HEADER_ALIASES: dict[str, list[str]] = {
-    "tovar_id": ["mxik", "мхик", "ikpu", "икпу", "tovar_id", "kod", "код", "barkod", "sku", "артикул", "id"],
+    "tovar_id": [
+        "mxik",
+        "мхик",
+        "ikpu",
+        "икпу",
+        "идентификационный_код_и_название_по_единому_электронному_национальному_каталогу_товаров_услуг",
+        "идентификационный_код",
+        "идентификацион_код",
+        "индефикац_код",
+        "маҳсулот_коди",
+        "махсулот_коди",
+        "tovar_id",
+        "kod",
+        "код",
+        "barkod",
+        "sku",
+        "артикул",
+        "id",
+    ],
     "tovar_nomi": [
         "примечание_к_товару_работе_услуге",
         "примечание_к_товару",
         "наименование_товара",
+        "маҳсулот_номи",
+        "махсулот_номи",
         "tovar_nomi",
         "tovar",
         "nomi",
@@ -35,7 +55,7 @@ HEADER_ALIASES: dict[str, list[str]] = {
     "bosh_qoldiq_soni": ["boshlangich_qoldiq", "bosh_qoldiq", "bosh_qoldiq_soni", "нач_остаток", "начальный_остаток"],
     "kirim_soni": ["kirim", "kirim_miqdori", "kirim_soni", "prikhod", "приход", "поступление"],
     "chiqim_soni": ["chiqim", "chiqim_miqdori", "chiqim_soni", "rasxod", "sotuv", "расход", "продажа", "реализация"],
-    "quantity": ["miqdor", "soni", "kolichestvo", "количество", "кол_во", "qty"],
+    "quantity": ["miqdor", "soni", "миқдори", "микдори", "сони", "kolichestvo", "количество", "кол_во", "qty"],
     "summa": [
         "стоимость_поставки_с_учётом_ндс",
         "стоимость_поставки_с_учетом_ндс",
@@ -47,8 +67,9 @@ HEADER_ALIASES: dict[str, list[str]] = {
         "сумма",
         "стоимость",
         "всего",
+        "нархи",
     ],
-    "ortacha_narx": ["narx", "tannarx", "ortacha_narx", "цена", "себестоимость"],
+    "ortacha_narx": ["narx", "tannarx", "ortacha_narx", "цена", "себестоимость", "нарх"],
     "bosh_markirovka": ["bosh_markirovka", "boshlangich_markirovka", "нач_киз", "нач_маркировка"],
     "kirim_markirovka": ["kirim_markirovka", "prikhod_markirovka", "приход_киз", "приход_маркировка"],
     "chiqim_markirovka": ["chiqim_markirovka", "sotuv_markirovka", "расход_киз", "расход_маркировка"],
@@ -56,11 +77,43 @@ HEADER_ALIASES: dict[str, list[str]] = {
 }
 
 _HEADER_EXCLUSIONS: dict[str, tuple[str, ...]] = {
+    "tovar_id": ("филиал", "ўлчов", "улчов", "единица"),
     "tovar_nomi": ("продавец", "покупатель", "контрагент", "филиал"),
-    "summa": ("акциз", "ндс_сумма", "сумма_ндс"),
+    "summa": ("акциз", "ндс_сумма", "сумма_ндс", "чегирма", "дисконт", "ққс", "ккс", "нақд", "накд", "карта"),
 }
 
 _NON_NUM_RE = re.compile(r"[^\d.\-]")
+_MXIK_FLOAT_RE = re.compile(r"^(\d+)\.0+$")
+_MXIK_START17_RE = re.compile(r"^[$#№]?(\d{17})(?!\d)")
+_MXIK_BOUNDARY_RE = re.compile(r"(?:^|[^A-Za-z\u0400-\u04FF\d])(\d{6,})(?![A-Za-z\u0400-\u04FF\d])")
+_MXIK_LEAD_TEXT_RE = re.compile(r"^[$#№]?(\d+)(?:\s+[-–—:/|]\s+\S|\s*[-–—:/|,(\s]+\s*[^\d\s])")
+
+
+def extract_mxik_code(raw) -> str:
+    """MXIK ustunida kod va tovar nomi aralash kelganda faqat MXIK raqamlarini ajratib oladi."""
+    if raw is None:
+        return ""
+    text = str(raw).strip()
+    if not text or text.lower() in ("nan", "none"):
+        return ""
+    m_float = _MXIK_FLOAT_RE.match(text)
+    if m_float:
+        return m_float.group(1)
+    if text.isdigit():
+        return text
+    m_start17 = _MXIK_START17_RE.match(text)
+    if m_start17:
+        return m_start17.group(1)
+    nums = _MXIK_BOUNDARY_RE.findall(text)
+    if nums:
+        for n in nums:
+            if len(n) == 17:
+                return n
+        return max(nums, key=len)
+    m_lead = _MXIK_LEAD_TEXT_RE.match(text)
+    if m_lead:
+        return m_lead.group(1)
+    return text
 
 
 def clean_decimal(value, places: int = 2) -> Decimal:
@@ -144,11 +197,12 @@ def map_headers(columns: list[object]) -> dict[str, str]:
 
 
 def _deduplicate_headers(raw_row) -> list[str]:
-    """Takroriy yoki bo'sh ustun nomlarini unikal ko'rinishga keltiradi."""
+    """Takroriy, bo'sh yoki ko'p qatorli (\\n) ustun nomlarini bir qatorli unikal ko'rinishga keltiradi."""
     seen: dict[str, int] = {}
     result: list[str] = []
     for idx, c in enumerate(raw_row):
-        base = str(c).strip() if c is not None and str(c).strip() else f"col_{idx}"
+        clean = " ".join(str(c).split()) if c is not None else ""
+        base = clean if clean else f"col_{idx}"
         count = seen.get(base, 0) + 1
         seen[base] = count
         result.append(base if count == 1 else f"{base} ({count})")
@@ -406,7 +460,10 @@ def _read_chunks_into_acc(
         if header_map is None:
             header_map = map_headers(list(raw_df.columns))
             if explicit_map:
-                header_map.update({k: v for k, v in explicit_map.items() if v and v in raw_df.columns})
+                for k, v in explicit_map.items():
+                    norm_v = " ".join(str(v).split()) if v else ""
+                    if norm_v and norm_v in raw_df.columns:
+                        header_map[k] = norm_v
             if "tovar_nomi" not in header_map:
                 raise ValueError(
                     f"{path.name}: tovar nomi ustuni topilmadi (masalan: 'Tovar nomi', 'Наименование')."
@@ -417,13 +474,9 @@ def _read_chunks_into_acc(
 
         df = pd.DataFrame(index=raw_df.index)
         if "tovar_id" in header_map:
-            df["tovar_id"] = (
-                _get_series(raw_df, header_map["tovar_id"])
-                .fillna("")
-                .astype(str)
-                .str.strip()
-                .str.replace(r"\.0+$", "", regex=True)
-            )
+            raw_ids = _get_series(raw_df, header_map["tovar_id"]).fillna("").astype(str).str.strip()
+            id_map = {val: extract_mxik_code(val) for val in raw_ids.unique()}
+            df["tovar_id"] = raw_ids.map(id_map)
         else:
             df["tovar_id"] = ""
         df["tovar_nomi_raw"] = _get_series(raw_df, header_map["tovar_nomi"]).fillna("").astype(str).str.strip()
